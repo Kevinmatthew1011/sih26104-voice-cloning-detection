@@ -21,7 +21,7 @@ Raw Audio Input (.wav, .mp3, .ogg, .flac, .m4a, .aac, .webm)
 │   • Load & decode audio stream                           │
 │   • Convert multi-channel to mono (1 channel)            │
 │   • Resample to 16,000 Hz (16 kHz speech standard)       │
-│   • Fixed length trimming / zero-padding (3.0 seconds)   │
+│   • Fixed length 3.0s: zero-pad or truncate to first 3s  │
 │   • Peak amplitude normalization ([-1.0, 1.0])           │
 └─────────────────────────┬────────────────────────────────┘
                           │ 1D Array (48,000 samples @ 16 kHz)
@@ -49,7 +49,8 @@ Raw Audio Input (.wav, .mp3, .ogg, .flac, .m4a, .aac, .webm)
 ┌──────────────────────────────────────────────────────────┐
 │        4. Detection Output Contract & Inference          │
 │   • Prediction: "real" (0) or "synthetic" (1)            │
-│   • Confidence: Calibrated class probability (0.0 - 1.0) │
+│   • Confidence: Predicted class probability estimate     │
+│     (Note: uncalibrated model estimate from 0.0 - 1.0)   │
 │   • Risk Level: "low" | "medium" | "high"                │
 │   • Model Version: "baseline-v1"                         │
 └──────────────────────────────────────────────────────────┘
@@ -64,13 +65,30 @@ All audio files across training, evaluation, and production inference pass throu
 | Parameter | Default Value | Rationale |
 |---|---|---|
 | `target_sr` | `16000` Hz | 16 kHz captures fundamental human speech frequencies up to 8 kHz (Nyquist frequency) while minimizing feature matrix memory. |
-| `mono` | `True` | Eliminates stereo phase artifacts and ensures microphone channel consistency. |
+| `mono` | `True` | Eliminates stereo phase artifacts and ensures microphone channel consistency. Multi-channel inputs are averaged to single mono channel. |
 | `max_duration_seconds`| `3.0` seconds | 48,000 samples provide sufficient phonetic coverage for spectral statistics while keeping inference latency < 200 ms. |
 | `normalize` | `True` | Peak amplitude normalization prevents recording volume variations from skewing acoustic energy descriptors. |
 
+### ⚠️ Critical 3-Second Truncation Limitation
+- **Zero-Padding**: Audio clips shorter than 3.0 seconds are zero-padded to 3.0 seconds (48,000 samples).
+- **Truncation**: Audio clips longer than 3.0 seconds are **truncated to the first 3.0 seconds**.
+- **Implication**: Only the initial 3 seconds of a recording are analyzed in this baseline. If synthetic artifacts, voice-conversion transitions, or cloning glitches occur later in the recording (e.g. after the 3-second mark), they will be missed by this baseline model.
+- **Future Recommendation**: Future neural architectures should implement sliding-window segment inference with temporal probability aggregation (e.g., max-pooling or attention-weighted pooling over multiple segments).
+
 ---
 
-## 4. Feature Extraction Specifications (`app.ml.features`)
+## 4. Probability Interpretation & Terminology
+
+The baseline model uses `LogisticRegression.predict_proba()` to compute output scores.
+
+> [!IMPORTANT]
+> **Not Calibrated**: These probability values are **raw model probability estimates** (model score outputs) and are **not calibrated** (no Platt scaling, isotonic regression, or temperature scaling has been applied).
+>
+> The API response contract includes a `confidence` field for backwards compatibility with the full-stack interface. In this baseline implementation, `confidence` represents the **predicted class probability estimate** for the selected class (`max(P(real), P(synthetic))`), not a certified or calibrated confidence metric.
+
+---
+
+## 5. Feature Extraction Specifications (`app.ml.features`)
 
 The feature extraction pipeline computes an **88-dimensional fixed vector**:
 
@@ -85,7 +103,7 @@ The feature extraction pipeline computes an **88-dimensional fixed vector**:
 
 ---
 
-## 5. Dataset Directory Structure
+## 6. Dataset Directory Structure
 
 The dataset directory layout is located at the workspace root in `ml_data/`:
 
@@ -107,7 +125,7 @@ ml_data/
 
 ---
 
-## 6. Training the Baseline Model
+## 7. Training the Baseline Model
 
 Once you have added approved real and synthetic audio files into `ml_data/train/`:
 
@@ -136,7 +154,7 @@ When training completes successfully on a real dataset, it exports:
 
 ---
 
-## 7. Configuration & Engine Activation
+## 8. Configuration & Engine Activation
 
 In `.env` or environment variables:
 
@@ -155,19 +173,21 @@ DETECTION_ENGINE=baseline
 
 ---
 
-## 8. Research Limitations & Vulnerabilities
+## 9. Research Limitations & Vulnerabilities
 
-While this baseline establishes a clean, extensible machine learning foundation, it has several known scientific limitations when deployed against sophisticated adversarial voice cloning:
+While this baseline establishes a clean, extensible machine learning foundation, it has several known scientific limitations:
 
-1. **Speaker Leakage**: Clip-level random splitting across speakers causes the model to memorize speaker identities rather than detecting synthetic artifacts. A true benchmark requires speaker-independent splitting (e.g. ASVspoof protocol).
-2. **Unseen Neural Vocoders**: Linear classifiers on MFCCs struggle to generalize to modern diffusion vocoders (e.g., HiFi-GAN, BigVGAN, Voicebox) that were not present in the training distribution.
-3. **Lossy Compression / Codec Mismatch**: MP3/AAC compression and telephony codecs (G.711) discard high-frequency phase information, significantly degrading MFCC statistical separation.
-4. **Acoustic Replay Attacks**: A binary synthetic/real classifier cannot distinguish between direct digital synthesis and physical loudspeaker playback in a reverberant room.
-5. **Adversarial & Background Noise**: Ambient room noise lowers the Signal-to-Noise Ratio (SNR), increasing false positive rates on authentic voices.
+1. **Fixed 3-Second Window**: Only the initial 3 seconds of a recording are inspected; cloning anomalies occurring later in the file will not be detected.
+2. **Uncalibrated Probability Estimates**: Raw logistic regression probabilities are sensitive to class imbalance and feature correlation and do not represent calibrated confidence.
+3. **Speaker Leakage**: Clip-level random splitting across speakers causes the model to memorize speaker identities rather than detecting synthetic artifacts. A true benchmark requires speaker-independent splitting (e.g. ASVspoof protocol).
+4. **Unseen Neural Vocoders**: Linear classifiers on MFCCs struggle to generalize to modern diffusion vocoders (e.g., HiFi-GAN, BigVGAN, Voicebox) that were not present in the training distribution.
+5. **Lossy Compression / Codec Mismatch**: MP3/AAC compression and telephony codecs (G.711) discard high-frequency phase information, significantly degrading MFCC statistical separation.
+6. **Acoustic Replay Attacks**: A binary synthetic/real classifier cannot distinguish between direct digital synthesis and physical loudspeaker playback in a reverberant room.
+7. **Adversarial & Background Noise**: Ambient room noise lowers the Signal-to-Noise Ratio (SNR), increasing false positive rates on authentic voices.
 
 ---
 
-## 9. Replacing the Baseline with Advanced Deep Learning Models
+## 10. Replacing the Baseline with Advanced Deep Learning Models
 
 To replace `BaselineMLDetectionService` with your teammate's neural network (e.g., PyTorch / Hugging Face Wav2Vec 2.0):
 

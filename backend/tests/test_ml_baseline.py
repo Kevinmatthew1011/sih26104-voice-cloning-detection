@@ -22,14 +22,26 @@ def generate_test_tone_waveform(duration_sec: float = 1.0, sr: int = 16000, freq
     return (np.sin(2 * np.pi * freq * t) * 0.7).astype(np.float32)
 
 
-def generate_test_wav_bytes(duration_sec: float = 1.0, sr: int = 16000) -> bytes:
+def generate_test_wav_bytes(duration_sec: float = 1.0, sr: int = 16000, channels: int = 1) -> bytes:
     """Generate in-memory WAV byte stream for I/O testing."""
     num_samples = int(sr * duration_sec)
-    data_size = num_samples * 2
-    header = b"RIFF" + struct.pack("<I", 36 + data_size) + b"WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00"
-    header += struct.pack("<I", sr) + struct.pack("<I", sr * 2) + b"\x02\x00\x10\x00data" + struct.pack("<I", data_size)
-    samples = (np.sin(np.linspace(0, 10, num_samples)) * 16000).astype(np.int16).tobytes()
-    return header + samples
+    data_size = num_samples * channels * 2
+    header = b"RIFF" + struct.pack("<I", 36 + data_size) + b"WAVEfmt \x10\x00\x00\x00\x01\x00"
+    header += struct.pack("<H", channels)
+    header += struct.pack("<I", sr) + struct.pack("<I", sr * channels * 2)
+    header += struct.pack("<H", channels * 2) + struct.pack("<H", 16) + b"data" + struct.pack("<I", data_size)
+    
+    # Interleave channel samples if multi-channel
+    sample_data = (np.sin(np.linspace(0, 10, num_samples)) * 16000).astype(np.int16)
+    if channels == 2:
+        stereo_data = np.empty((num_samples, 2), dtype=np.int16)
+        stereo_data[:, 0] = sample_data
+        stereo_data[:, 1] = sample_data // 2
+        samples_bytes = stereo_data.tobytes()
+    else:
+        samples_bytes = sample_data.tobytes()
+        
+    return header + samples_bytes
 
 
 # ==========================================================
@@ -68,6 +80,50 @@ def test_audio_preprocessor_zero_padding():
     assert len(processed) == 48000
     # Last part should be zero-padded
     assert np.all(processed[8000:] == 0.0)
+
+
+def test_audio_preprocessor_truncation_to_3_seconds():
+    preprocessor = AudioPreprocessor(target_sr=16000, max_duration_seconds=3.0)
+    # Input is 6.0 seconds (long audio)
+    long_waveform = generate_test_tone_waveform(duration_sec=6.0, sr=16000)
+    
+    processed = preprocessor.process(long_waveform)
+    assert len(processed) == 48000  # Exactly 3.0 seconds @ 16 kHz
+    # Verify it kept the first 3 seconds
+    np.testing.assert_allclose(processed, long_waveform[:48000] / np.max(np.abs(long_waveform[:48000])), atol=1e-4)
+
+
+def test_audio_preprocessor_multichannel_numpy_conversion():
+    preprocessor = AudioPreprocessor(target_sr=16000, max_duration_seconds=1.0, mono=True)
+    
+    # 1. Test shape (samples, channels) - 2 channels
+    num_samples = 16000
+    ch1 = np.ones(num_samples, dtype=np.float32) * 0.8
+    ch2 = np.ones(num_samples, dtype=np.float32) * 0.4
+    stereo_samples_first = np.column_stack([ch1, ch2])  # (16000, 2)
+    
+    processed_1 = preprocessor.process(stereo_samples_first)
+    assert processed_1.ndim == 1
+    assert len(processed_1) == 16000
+    # Average of 0.8 and 0.4 is 0.6; after peak normalization (0.6 / 0.6) = 1.0
+    np.testing.assert_allclose(processed_1, 1.0, atol=1e-4)
+
+    # 2. Test shape (channels, samples) - 2 channels
+    stereo_channels_first = np.vstack([ch1, ch2])  # (2, 16000)
+    processed_2 = preprocessor.process(stereo_channels_first)
+    assert processed_2.ndim == 1
+    assert len(processed_2) == 16000
+    np.testing.assert_allclose(processed_2, 1.0, atol=1e-4)
+
+
+def test_audio_preprocessor_multichannel_wav_bytes():
+    preprocessor = AudioPreprocessor(target_sr=16000, max_duration_seconds=1.0, mono=True)
+    stereo_wav_bytes = generate_test_wav_bytes(duration_sec=1.0, sr=16000, channels=2)
+    
+    processed = preprocessor.process(stereo_wav_bytes)
+    assert processed.ndim == 1
+    assert len(processed) == 16000
+    assert not np.isnan(processed).any()
 
 
 def test_audio_preprocessor_empty_input_raises_error():

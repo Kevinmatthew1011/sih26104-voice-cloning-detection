@@ -44,7 +44,7 @@ Production-grade full-stack forensic application engineered for Smart India Hack
 ## 🚀 Key Capabilities & Highlights
 
 1. **Modular ML Architecture**: The ML detection layer is isolated behind an abstract base class (`BaseDetectionService`). Switch between mock simulation and real trained ML models using `DETECTION_ENGINE=mock` or `DETECTION_ENGINE=baseline`.
-2. **Supervised ML Baseline Pipeline**: Complete MFCC and spectral envelope feature extractor (88-dimensional vector), standardized preprocessor (16 kHz, mono, 3.0s), and calibrated scikit-learn classifier pipeline.
+2. **Supervised ML Baseline Pipeline**: Complete MFCC and spectral envelope feature extractor (88-dimensional vector), standardized preprocessor (16 kHz, mono, 3.0s window), and scikit-learn classifier pipeline.
 3. **Interactive Audio Visualizer & Player**: WebAudio waveform visualization, frequency spectrum dynamic simulation, playback scrubbing, and volume control.
 4. **Multi-Source Audio Ingestion**: Drag-and-drop audio file upload (.wav, .mp3, .ogg, .flac, .m4a, .aac, .webm) and live in-browser microphone recording via `MediaRecorder`.
 5. **Forensic Telemetry & Countermeasures**: Comprehensive threat matrix displaying biometric certainty, vocoder footprint score, harmonic phase coherence, and actionable security incident response guidance.
@@ -68,7 +68,7 @@ Production-grade full-stack forensic application engineered for Smart India Hack
 │   │   │   │   └── health.py         # Health check & engine telemetry
 │   │   │   └── router.py
 │   │   ├── ml/                       # Machine Learning Baseline Pipeline
-│   │   │   ├── preprocessing.py      # Audio loading, resampling & padding
+│   │   │   ├── preprocessing.py      # Audio loading, resampling & 3s windowing
 │   │   │   ├── features.py           # 88-dim MFCC + Spectral Extractor
 │   │   │   ├── classifier.py         # StandardScaler + Logistic Regression
 │   │   │   ├── inference.py          # Model inference engine
@@ -218,13 +218,17 @@ python -m app.ml.train
 
 When training completes, it generates:
 - `models/baseline-v1/model.joblib`: Serialized StandardScaler + Logistic Regression model.
-- `models/baseline-v1/metadata.json`: Model hyperparameters, metrics (Accuracy, Precision, Recall, F1), and training details.
+- `models/baseline-v1/metadata.json`: Model hyperparameters, evaluation metrics (Accuracy, Precision, Recall, F1), and training details.
 
 ### 2. Activating the Baseline Engine
 Set in `.env`:
 ```bash
 DETECTION_ENGINE=baseline
 ```
+
+### 3. Baseline Pipeline Limitations:
+- **3-Second Window**: Only the first 3.0 seconds (48,000 samples at 16 kHz) of an audio file are analyzed. Audio longer than 3 seconds is truncated.
+- **Probability Estimates**: Output probabilities from `predict_proba()` represent raw model score estimates and are not calibrated confidence metrics.
 
 For comprehensive ML documentation, architecture parameters, and research limitations, see [docs/ml-baseline.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/ml-baseline.md).
 
@@ -258,6 +262,7 @@ For comprehensive ML documentation, architecture parameters, and research limita
   }
 }
 ```
+*Note: The `confidence` field returns the predicted class probability estimate ($0.0 - 1.0$) for the selected prediction from the active classifier.*
 
 ### 3. Detection Case History
 `GET /api/v1/detections?skip=0&limit=20&prediction=synthetic&risk_level=high&search=keyword`

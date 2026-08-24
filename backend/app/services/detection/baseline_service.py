@@ -17,8 +17,11 @@ class BaselineMLDetectionService(BaseDetectionService):
     Implements the BaseDetectionService interface using the trained scikit-learn
     MFCC + Logistic Regression pipeline.
     
-    If the model artifact has not been trained, it fails loudly and clearly with
-    actionable guidance.
+    Notes on Baseline Behavior:
+    - Probability estimates: The 'confidence' field in DetectionResultDTO represents the
+      uncalibrated class probability estimate produced by LogisticRegression.predict_proba().
+    - 3-Second Window: Only the first 3.0 seconds of audio are analyzed by this baseline.
+    - If the model artifact has not been trained, it fails loudly with HTTP 503 and clear guidance.
     """
 
     def __init__(self, model_version: str = "baseline-v1"):
@@ -32,6 +35,7 @@ class BaselineMLDetectionService(BaseDetectionService):
             "version": self.model_version,
             "type": "scikit_learn_logistic_regression",
             "feature_extractor": "MFCC + Delta + Spectral Descriptors (88-dim)",
+            "analyzed_duration_seconds": 3.0,
             "model_trained": is_available,
             "status": "ready" if is_available else "model_not_trained",
         }
@@ -68,7 +72,7 @@ class BaselineMLDetectionService(BaseDetectionService):
 
             return DetectionResultDTO(
                 prediction=PredictionEnum(prediction_str),
-                confidence=inference_result["confidence"],
+                confidence=inference_result["confidence"],  # Model probability estimate
                 risk_level=RiskLevelEnum(risk_level_str),
                 model_version=self.model_version,
                 processing_time_ms=inference_result["processing_time_ms"],
