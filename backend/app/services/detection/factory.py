@@ -2,6 +2,7 @@ import logging
 from app.config import settings
 from app.services.detection.base import BaseDetectionService
 from app.services.detection.mock_service import MockDetectionService
+from app.services.detection.baseline_service import BaselineMLDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -13,29 +14,32 @@ def get_detection_service() -> BaseDetectionService:
     """
     Factory function providing the active detection service implementation.
     
-    To replace the Mock with the Teammate's real AI/ML model:
-    1. Implement a class inheriting from BaseDetectionService (e.g. RealMlDetectionService).
-    2. Register it in this factory function.
-    3. Update the DETECTION_ENGINE environment variable (e.g. DETECTION_ENGINE=real_ml).
-    
-    No other API or DB code needs to be modified!
+    Supported DETECTION_ENGINE values:
+    - "mock": MockDetectionService (deterministic heuristic simulator)
+    - "baseline": BaselineMLDetectionService (real scikit-learn MFCC baseline)
     """
     global _detection_service_instance
     if _detection_service_instance is not None:
         return _detection_service_instance
 
-    engine_name = settings.DETECTION_ENGINE.lower()
-    
+    engine_name = settings.DETECTION_ENGINE.strip().lower()
+
     if engine_name == "mock":
-        logger.info(f"Initializing MockDetectionService with version {settings.MOCK_MODEL_VERSION}")
+        logger.info(f"Initializing MockDetectionService (model_version: {settings.MOCK_MODEL_VERSION})")
         _detection_service_instance = MockDetectionService(model_version=settings.MOCK_MODEL_VERSION)
+    elif engine_name == "baseline":
+        logger.info("Initializing BaselineMLDetectionService (model_version: baseline-v1)")
+        _detection_service_instance = BaselineMLDetectionService(model_version="baseline-v1")
     else:
-        # Placeholder for teammate's real model implementation
-        # e.g., from app.services.detection.real_ml_service import RealMlDetectionService
-        # _detection_service_instance = RealMlDetectionService()
-        logger.warning(
-            f"Requested engine '{engine_name}' not yet registered. Falling back to MockDetectionService."
+        raise ValueError(
+            f"Unsupported DETECTION_ENGINE '{engine_name}'. "
+            "Supported options are: 'mock', 'baseline'."
         )
-        _detection_service_instance = MockDetectionService(model_version=settings.MOCK_MODEL_VERSION)
 
     return _detection_service_instance
+
+
+def reset_detection_service_cache() -> None:
+    """Helper for testing to reset the singleton instance."""
+    global _detection_service_instance
+    _detection_service_instance = None
