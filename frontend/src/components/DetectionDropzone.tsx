@@ -8,10 +8,8 @@ import {
   Square,
   FileAudio,
   AlertCircle,
-  CheckCircle2,
   Cpu,
   ArrowRight,
-  ShieldAlert,
   Loader2,
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -26,9 +24,9 @@ interface DetectionDropzoneProps {
 
 const PIPELINE_STAGES = [
   'Ingesting & Validating Audio Stream',
-  'Extracting Acoustic Formants & Phase Dynamics',
-  'Neural Vocoder & Diffusion Artifact Classification',
-  'Synthesizing Forensic Security Verdict',
+  'Standardizing 16 kHz Mono & 3.0s Window',
+  'Extracting 88-dim MFCC & Spectral Descriptors',
+  'Evaluating Classification Probability',
 ];
 
 export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
@@ -159,7 +157,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
     setErrorMessage(null);
     setResult(null);
 
-    // Simulate animated pipeline stages
+    // Simulated step progression
     const stageInterval = setInterval(() => {
       setPipelineStage((prev) => (prev < PIPELINE_STAGES.length - 1 ? prev + 1 : prev));
     }, 400);
@@ -173,10 +171,10 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
       if (redirectToDetail) {
         setTimeout(() => {
           router.push(`/detections/${data.id}`);
-        }, 1200);
+        }, 1000);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Detection failed.');
+      setErrorMessage(err.message || 'Detection analysis failed.');
     } finally {
       clearInterval(stageInterval);
       setIsAnalyzing(false);
@@ -230,7 +228,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               onClick={stopRecording}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
             >
-              <Square className="w-4 h-4" /> Stop & Validate
+              <Square className="w-4 h-4" /> Stop Recording
             </button>
           </div>
         ) : selectedFile ? (
@@ -262,11 +260,11 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               >
                 {isAnalyzing ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Analyzing Forensic Signal...
+                    <Loader2 className="w-4 h-4 animate-spin" /> Analyzing Audio Signal...
                   </>
                 ) : (
                   <>
-                    <Cpu className="w-4 h-4" /> Run Voice Cloning Analysis
+                    <Cpu className="w-4 h-4" /> Run Authenticity Analysis
                   </>
                 )}
               </button>
@@ -280,7 +278,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-slate-200">
-                Drop suspicious audio file here, or browse
+                Drop audio recording here, or browse
               </h3>
               <p className="text-xs text-slate-400">
                 Supports <span className="font-mono text-slate-300">WAV, MP3, OGG, FLAC, M4A, AAC, WEBM</span> up to 25 MB
@@ -340,7 +338,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div>
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
-                Detection Verdict
+                Detection Result
               </span>
               <div className="flex items-center gap-3 mt-1">
                 <ThreatBadge prediction={result.prediction} size="lg" />
@@ -353,7 +351,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
                 onClick={() => router.push(`/detections/${result.id}`)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs tracking-wider uppercase transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)]"
               >
-                Inspect Forensic Case <ArrowRight className="w-3.5 h-3.5" />
+                Inspect Case Details <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -369,7 +367,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
             <div className="space-y-3 font-mono text-xs text-slate-300">
               <div className="flex justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-500">Attack Classification:</span>
-                <span className="font-semibold text-slate-200">{result.attack_type || 'N/A'}</span>
+                <span className="font-semibold text-slate-200">{result.attack_type || 'Not classified'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-500">Engine / Model Version:</span>
@@ -378,7 +376,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-800/60">
-                <span className="text-slate-500">Inference Latency:</span>
+                <span className="text-slate-500">Analysis Latency:</span>
                 <span className="text-slate-200">{result.processing_time_ms} ms</span>
               </div>
             </div>
@@ -387,7 +385,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           {result.explanation && (
             <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 leading-relaxed">
               <span className="font-mono text-slate-400 block mb-1 font-semibold uppercase text-[10px]">
-                Forensic Reasoning & Anomaly Analysis:
+                Model Analysis:
               </span>
               {result.explanation}
             </div>

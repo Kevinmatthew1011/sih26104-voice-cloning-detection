@@ -8,16 +8,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   AlertTriangle,
-  Cpu,
-  Clock,
-  FileAudio,
   Activity,
-  Layers,
-  Code2,
   Lock,
-  Download,
   AlertOctagon,
-  CheckCircle2,
 } from 'lucide-react';
 import { api } from '../../../lib/api';
 import { DetectionCaseDetail } from '../../../lib/types';
@@ -28,7 +21,15 @@ import { AudioWaveformVisualizer } from '../../../components/AudioWaveformVisual
 export default function DetectionDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+
+  // Safely extract and decode dynamic route param
+  const rawId = params?.id;
+  const id =
+    typeof rawId === 'string'
+      ? decodeURIComponent(rawId)
+      : Array.isArray(rawId)
+      ? decodeURIComponent(rawId[0])
+      : '';
 
   const [caseDetail, setCaseDetail] = useState<DetectionCaseDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +37,12 @@ export default function DetectionDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'raw_json'>('overview');
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || id === '[id]' || id === '%5Bid%5D') {
+      setIsLoading(false);
+      setError('Detection case ID is invalid or not specified.');
+      return;
+    }
+
     const fetchDetail = async () => {
       setIsLoading(true);
       setError(null);
@@ -70,7 +76,9 @@ export default function DetectionDetailPage() {
       <div className="max-w-xl mx-auto my-12 rounded-3xl border border-red-500/30 bg-red-950/20 p-8 text-center space-y-4">
         <AlertOctagon className="w-12 h-12 text-red-400 mx-auto" />
         <h2 className="text-lg font-bold text-white">Detection Case Not Found</h2>
-        <p className="text-xs text-slate-300 font-mono">{error || 'The requested case could not be located.'}</p>
+        <p className="text-xs text-slate-300 font-mono">
+          {error || `Detection case '${id}' could not be located.`}
+        </p>
         <Link
           href="/detections"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors"
@@ -87,12 +95,12 @@ export default function DetectionDetailPage() {
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Navigation Breadcrumb & Back */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/detections"
           className="flex items-center gap-2 text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to History
-        </button>
+        </Link>
 
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-slate-500">Case ID:</span>
@@ -116,7 +124,7 @@ export default function DetectionDetailPage() {
           <div className="space-y-3 max-w-xl">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono uppercase tracking-widest text-slate-400">
-                Threat Forensics Verdict
+                Detection Result
               </span>
             </div>
 
@@ -161,7 +169,7 @@ export default function DetectionDetailPage() {
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          Forensic Overview
+          Detection Overview
         </button>
         <button
           onClick={() => setActiveTab('telemetry')}
@@ -201,22 +209,27 @@ export default function DetectionDetailPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
               <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
                 <Activity className="w-4 h-4 text-cyan-400" />
-                <span>Forensic Reasoning</span>
+                <span>Model Analysis</span>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-300 leading-relaxed">
-                {res?.explanation || 'No acoustic anomaly explanation available for this case.'}
+                {res?.explanation ||
+                  'Baseline ML classification using MFCC and spectral features. The model estimates the probability that this recording belongs to the synthetic speech class. This baseline does not identify a specific voice-cloning architecture.'}
               </div>
 
               <div className="space-y-2 text-xs font-mono">
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
-                  <span className="text-slate-400">Attack Signature:</span>
-                  <span className="font-semibold text-slate-200">{res?.attack_type || 'None'}</span>
+                  <span className="text-slate-400">Attack Classification:</span>
+                  <span className="font-semibold text-slate-200">
+                    {res?.attack_type || 'Not classified by baseline'}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
                   <span className="text-slate-400">Inference Engine:</span>
                   <span className="text-cyan-400">
-                    {res?.model_version === 'baseline-v1' ? 'Baseline ML Model (baseline-v1)' : res?.model_version}
+                    {res?.model_version === 'baseline-v1'
+                      ? 'Baseline ML Model (baseline-v1)'
+                      : res?.model_version || 'Mock Detection Engine'}
                   </span>
                 </div>
                 <div className="flex justify-between py-2">
@@ -230,7 +243,7 @@ export default function DetectionDetailPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
               <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
                 <Lock className="w-4 h-4 text-cyan-400" />
-                <span>Defense Countermeasure Protocol</span>
+                <span>Recommended Response Protocol</span>
               </div>
 
               {res?.risk_level === 'high' ? (
@@ -238,15 +251,15 @@ export default function DetectionDetailPage() {
                   <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs flex items-start gap-3">
                     <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">HIGH RISK: Synthetic Impersonation</span>
-                      <span>Immediate quarantine and identity challenge recommended.</span>
+                      <span className="font-bold block">HIGH RISK: Potential Synthetic Speech</span>
+                      <span>Recommended action: Request secondary verification before relying on this recording.</span>
                     </div>
                   </div>
 
                   <ul className="text-xs text-slate-300 space-y-2 font-mono list-disc list-inside">
-                    <li>Terminate real-time voice verification session.</li>
-                    <li>Trigger out-of-band multi-factor biometric step-up authentication.</li>
-                    <li>Add voiceprint spectral hash to known synthetic attack blocklist.</li>
+                    <li>Request out-of-band identity confirmation from the caller.</li>
+                    <li>Conduct secondary challenge question or video verification.</li>
+                    <li>Flag recording for manual supervisor security review.</li>
                   </ul>
                 </div>
               ) : res?.risk_level === 'medium' ? (
@@ -254,28 +267,28 @@ export default function DetectionDetailPage() {
                   <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-400 text-xs flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">MEDIUM RISK: Replay Attack Warning</span>
-                      <span>Audio exhibits secondary loudspeaker distortion.</span>
+                      <span className="font-bold block">MEDIUM RISK: Inconclusive Signal</span>
+                      <span>Recommended action: Verify speaker identity via an alternate communication channel.</span>
                     </div>
                   </div>
 
                   <ul className="text-xs text-slate-300 space-y-2 font-mono list-disc list-inside">
                     <li>Prompt caller with dynamic randomized challenge phrase.</li>
-                    <li>Request environment microphone re-calibration.</li>
+                    <li>Re-record audio with improved microphone signal-to-noise ratio.</li>
                   </ul>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                    <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">LOW RISK: Authentic Vocal Tract</span>
-                      <span>Signal matches organic human speech physiological kinematics.</span>
+                      <span className="font-bold block">LOW RISK: Organic Speech Indicators</span>
+                      <span>Signal features are consistent with organic speech baseline parameters.</span>
                     </div>
                   </div>
 
                   <p className="text-xs text-slate-400 font-mono">
-                    Voice session cleared for secure standard processing.
+                    Standard processing may proceed according to policy.
                   </p>
                 </div>
               )}
@@ -289,7 +302,7 @@ export default function DetectionDetailPage() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
             <h3 className="text-sm font-semibold text-slate-200 uppercase font-mono tracking-wider">
-              Acoustic & Neural Vocoder Artifact Metrics
+              Acoustic & Spectral Artifact Metrics
             </h3>
 
             {res?.spectral_artifacts ? (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, RotateCcw, Activity } from 'lucide-react';
 
 interface AudioWaveformVisualizerProps {
@@ -17,18 +17,16 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
   prediction,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds || 0);
   const [isMuted, setIsMuted] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
 
-  // Frequency spectrum simulation
+  // Frequency spectrum visualization envelope
   const [bars] = useState(() =>
     Array.from({ length: 48 }, (_, i) => {
       const x = i / 48;
-      // Synthesize realistic speech formant envelope
       const formant1 = Math.exp(-Math.pow((x - 0.2) / 0.1, 2));
       const formant2 = Math.exp(-Math.pow((x - 0.5) / 0.15, 2));
       const formant3 = Math.exp(-Math.pow((x - 0.8) / 0.1, 2));
@@ -45,7 +43,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
-        .catch((err) => {
+        .catch(() => {
           setAudioError('Playback failed. Please interact with page first.');
         });
     }
@@ -107,7 +105,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
           <span className="font-mono text-xs uppercase tracking-wider text-slate-300">
-            Acoustic Signal Analysis & Playback
+            Audio Signal & Playback
           </span>
         </div>
         {filename && (
@@ -117,7 +115,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
         )}
       </div>
 
-      {/* Simulated Waveform / Spectral Visualizer */}
+      {/* Simulated Waveform Visualizer */}
       <div className="relative h-20 w-full flex items-end justify-between gap-[2px] px-2 py-3 bg-slate-900/60 rounded-lg border border-slate-800/60 overflow-hidden mb-4">
         {/* Playback progress overlay */}
         <div
@@ -202,7 +200,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
             onClick={toggleMute}
             className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
           </button>
         </div>
       </div>

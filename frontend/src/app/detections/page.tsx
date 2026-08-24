@@ -12,10 +12,9 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
-  ShieldAlert,
 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { DetectionCaseSummary, PredictionType, RiskLevelType } from '../../lib/types';
+import { DetectionCaseSummary } from '../../lib/types';
 import { ThreatBadge } from '../../components/ThreatBadge';
 
 export default function DetectionsHistoryPage() {
@@ -71,7 +70,7 @@ export default function DetectionsHistoryPage() {
             Detection Case History
           </h1>
           <p className="text-xs text-slate-400">
-            Comprehensive audit record of all voice cloning scans and impersonation risk assessments
+            Audit record of voice cloning detection scans and impersonation risk assessments
           </p>
         </div>
 
@@ -113,10 +112,9 @@ export default function DetectionsHistoryPage() {
                 className="bg-transparent text-xs text-cyan-400 focus:outline-none cursor-pointer"
               >
                 <option value="all">All Verdicts</option>
-                <option value="synthetic">Synthetic / Cloned</option>
-                <option value="real">Organic / Genuine</option>
-                <option value="replay">Acoustic Replay</option>
-                <option value="unknown">Inconclusive</option>
+                <option value="synthetic">Synthetic</option>
+                <option value="real">Real Speech</option>
+                <option value="replay">Replay (Planned)</option>
               </select>
             </div>
 
@@ -176,11 +174,11 @@ export default function DetectionsHistoryPage() {
             <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 mx-auto">
               <FileAudio className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-300">No detection records found</h3>
+            <h3 className="text-sm font-semibold text-slate-300">No detection cases yet</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
               {search || predictionFilter !== 'all' || riskFilter !== 'all'
                 ? 'No cases match your filter criteria. Try resetting the filters.'
-                : 'No audio detections have been recorded yet.'}
+                : 'Upload an audio recording to create the first detection case.'}
             </p>
           </div>
         ) : (
@@ -189,8 +187,8 @@ export default function DetectionsHistoryPage() {
               <thead>
                 <tr className="border-b border-slate-800/80 bg-slate-900/50 text-[11px] font-mono uppercase tracking-wider text-slate-400">
                   <th className="py-3.5 px-4">Case File & ID</th>
-                  <th className="py-3.5 px-4">Threat Verdict</th>
-                  <th className="py-3.5 px-4">Confidence</th>
+                  <th className="py-3.5 px-4">Verdict</th>
+                  <th className="py-3.5 px-4">Probability</th>
                   <th className="py-3.5 px-4">Risk Level</th>
                   <th className="py-3.5 px-4">Attack Type</th>
                   <th className="py-3.5 px-4">Date / Time</th>
@@ -246,6 +244,7 @@ export default function DetectionsHistoryPage() {
                                 ? 'text-amber-400'
                                 : 'text-emerald-400'
                             }
+                            title="Uncalibrated model probability estimate"
                           >
                             {Math.round(res.confidence * 100)}%
                           </span>
@@ -263,7 +262,7 @@ export default function DetectionsHistoryPage() {
                       </td>
 
                       <td className="py-3.5 px-4 font-mono text-[11px] text-slate-400 max-w-[180px] truncate">
-                        {res?.attack_type || 'N/A'}
+                        {res?.attack_type || 'Not classified'}
                       </td>
 
                       <td className="py-3.5 px-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">

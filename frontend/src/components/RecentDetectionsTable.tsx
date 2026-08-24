@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ThreatBadge } from './ThreatBadge';
 import { DetectionCaseSummary } from '../lib/types';
-import { ArrowRight, FileAudio, Clock, AlertCircle } from 'lucide-react';
+import { ArrowRight, FileAudio } from 'lucide-react';
 
 interface RecentDetectionsTableProps {
   cases: DetectionCaseSummary[];
@@ -33,7 +33,7 @@ export const RecentDetectionsTable: React.FC<RecentDetectionsTableProps> = ({
         </div>
         <h4 className="text-sm font-semibold text-slate-300">No detection cases recorded yet</h4>
         <p className="text-xs text-slate-400 max-w-sm mx-auto">
-          Upload or record an audio file to run your first real-time voice cloning threat assessment.
+          Upload or record an audio file to run your first voice cloning threat assessment.
         </p>
         <Link
           href="/detect"
@@ -53,7 +53,7 @@ export const RecentDetectionsTable: React.FC<RecentDetectionsTableProps> = ({
             <tr className="border-b border-slate-800/80 bg-slate-900/40 text-[11px] font-mono uppercase tracking-wider text-slate-400">
               <th className="py-3.5 px-4">Case File</th>
               <th className="py-3.5 px-4">Verdict</th>
-              <th className="py-3.5 px-4">Confidence</th>
+              <th className="py-3.5 px-4">Probability</th>
               <th className="py-3.5 px-4">Risk Level</th>
               <th className="py-3.5 px-4">Timestamp</th>
               <th className="py-3.5 px-4 text-right">Action</th>
@@ -108,6 +108,7 @@ export const RecentDetectionsTable: React.FC<RecentDetectionsTableProps> = ({
                             ? 'text-amber-400'
                             : 'text-emerald-400'
                         }
+                        title="Uncalibrated model probability estimate"
                       >
                         {Math.round(res.confidence * 100)}%
                       </span>

@@ -2,7 +2,7 @@ import React from 'react';
 import { PredictionType, RiskLevelType } from '../lib/types';
 
 interface ConfidenceGaugeProps {
-  confidence: number; // 0.0 to 1.0
+  confidence: number; // 0.0 to 1.0 (uncalibrated probability estimate)
   riskLevel: RiskLevelType;
   prediction: PredictionType;
   size?: 'sm' | 'md' | 'lg';
@@ -62,6 +62,13 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
   const svgSize = (radius + strokeWidth) * 2;
 
+  const probabilityLabel =
+    prediction === 'synthetic'
+      ? 'Synthetic Probability'
+      : prediction === 'real'
+      ? 'Real Speech Probability'
+      : 'Probability Estimate';
+
   return (
     <div className="flex items-center gap-4">
       <div className="relative inline-flex items-center justify-center">
@@ -106,10 +113,13 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
       </div>
       <div className="flex flex-col">
         <span className="text-xs uppercase tracking-wider text-slate-400 font-mono">
-          Model Probability Score
+          {probabilityLabel}
         </span>
         <span className="text-sm font-semibold text-slate-200 font-mono">
-          {confidence.toFixed(4)} ({percentage}%)
+          {(confidence * 100).toFixed(1)}%
+        </span>
+        <span className="text-[10px] text-slate-500 font-mono">
+          Uncalibrated model estimate
         </span>
       </div>
     </div>

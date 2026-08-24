@@ -3,29 +3,32 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ShieldAlert, Radio, FileText, UploadCloud, Activity, Cpu } from 'lucide-react';
+import { ShieldAlert, Radio, FileText, UploadCloud, Activity } from 'lucide-react';
 import { api } from '../lib/api';
 import { HealthStatus } from '../lib/types';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     const checkHealth = async () => {
       try {
         const data = await api.getHealth();
         setHealth(data);
+        setIsError(false);
       } catch {
-        // Fallback handled in API
+        setIsError(true);
       }
     };
     checkHealth();
-    const interval = setInterval(checkHealth, 30000);
+    const interval = setInterval(checkHealth, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  const isHealthy = health && health.status === 'healthy';
+  const isHealthy = health && health.status === 'healthy' && !isError;
+  const isBaseline = health?.detection_engine === 'baseline';
 
   const navLinks = [
     { name: 'Dashboard', href: '/', icon: Activity },
@@ -51,7 +54,7 @@ export const Navbar: React.FC = () => {
               </span>
             </div>
             <p className="text-[10px] font-mono text-slate-400 tracking-wider">
-              Voice Cloning Impersonation Defense
+              Voice Cloning Detection Platform
             </p>
           </div>
         </Link>
@@ -83,19 +86,23 @@ export const Navbar: React.FC = () => {
           {/* Health Status Indicator */}
           <div
             className="flex items-center gap-2 px-2.5 py-1 rounded-full border border-slate-800 bg-slate-900/70 text-[11px] font-mono"
-            title={`Backend: ${health?.status || 'checking'}, Engine: ${health?.detection_engine || 'mock'}`}
+            title={`Backend Status: ${isHealthy ? 'Online' : 'Offline'}, Engine: ${health?.detection_engine || 'unknown'}`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                isHealthy ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                isHealthy ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'
               }`}
             />
-            <span className="hidden sm:inline text-slate-300">
-              {isHealthy ? 'ENGINE ACTIVE' : 'CONNECTING'}
-            </span>
-            <span className="text-[10px] text-slate-500 border-l border-slate-800 pl-1.5 hidden lg:inline">
-              v{health?.model_version || 'mock-v1'}
-            </span>
+            {isHealthy ? (
+              <span className="text-slate-300">
+                API ONLINE <span className="text-slate-600">|</span>{' '}
+                <span className="text-cyan-400 font-semibold">
+                  {isBaseline ? `BASELINE ML · ${health?.model_version || 'baseline-v1'}` : 'MOCK ENGINE'}
+                </span>
+              </span>
+            ) : (
+              <span className="text-red-400">API OFFLINE</span>
+            )}
           </div>
 
           <a

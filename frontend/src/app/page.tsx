@@ -9,7 +9,6 @@ import {
   UploadCloud,
   Radio,
   Activity,
-  ArrowRight,
   Waves,
   Layers,
   Lock,
@@ -55,7 +54,7 @@ export default function DashboardPage() {
           recentCases.reduce((acc, c) => acc + (c.result?.processing_time_ms || 0), 0) /
             recentCases.length
         )
-      : 0;
+      : null;
 
   return (
     <div className="space-y-12">
@@ -79,8 +78,8 @@ export default function DashboardPage() {
           </h1>
 
           <p className="text-base text-slate-300 leading-relaxed max-w-2xl">
-            Detect and mitigate synthetic speech, neural voice conversions, diffusion vocoders, and
-            acoustic replay attacks in real time. Built for defense-grade biometric verification.
+            Analyze audio for potential synthetic-speech indicators using an extensible voice authenticity
+            detection pipeline.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-4">
@@ -116,24 +115,24 @@ export default function DashboardPage() {
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 space-y-2 backdrop-blur-md">
           <div className="flex items-center justify-between text-slate-400 font-mono text-xs uppercase">
-            <span>Synthetic Attacks Flagged</span>
+            <span>Synthetic Cases</span>
             <ShieldAlert className="w-4 h-4 text-red-400" />
           </div>
           <div className="text-3xl font-mono font-bold text-red-400">
             {isLoading ? '--' : syntheticCount}
           </div>
-          <p className="text-[11px] text-slate-400">High-risk voice clone detections</p>
+          <p className="text-[11px] text-slate-400">Synthetic-speech detections</p>
         </div>
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 space-y-2 backdrop-blur-md">
           <div className="flex items-center justify-between text-slate-400 font-mono text-xs uppercase">
-            <span>Genuine Voices Verified</span>
+            <span>Real Voices Detected</span>
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-mono font-bold text-emerald-400">
             {isLoading ? '--' : genuineCount}
           </div>
-          <p className="text-[11px] text-slate-400">Organic vocal tract confirmation</p>
+          <p className="text-[11px] text-slate-400">Organic voice detections</p>
         </div>
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5 space-y-2 backdrop-blur-md">
@@ -142,10 +141,21 @@ export default function DashboardPage() {
             <Cpu className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-3xl font-mono font-bold text-cyan-400">
-            {isLoading || avgLatency === 0 ? '~180' : avgLatency}{' '}
-            <span className="text-sm font-normal text-slate-400">ms</span>
+            {isLoading ? (
+              '--'
+            ) : avgLatency !== null ? (
+              <>
+                {avgLatency} <span className="text-sm font-normal text-slate-400">ms</span>
+              </>
+            ) : (
+              '—'
+            )}
           </div>
-          <p className="text-[11px] text-slate-400">Active engine: {health?.detection_engine || 'mock-v1'}</p>
+          <p className="text-[11px] text-slate-400">
+            {avgLatency !== null
+              ? `Active engine: ${health?.detection_engine || 'mock-v1'}`
+              : 'No analyses yet'}
+          </p>
         </div>
       </section>
 
@@ -154,10 +164,10 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-100 uppercase tracking-wide">
-              Forensic Detection Pipeline
+              Voice Authenticity Detection Pipeline
             </h2>
             <p className="text-xs text-slate-400">
-              Multi-tiered acoustic and neural signature inspection
+              Acoustic feature analysis and statistical machine learning
             </p>
           </div>
         </div>
@@ -168,11 +178,11 @@ export default function DashboardPage() {
               <Waves className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-semibold text-slate-200">
-              Acoustic Phase Discontinuity
+              Acoustic Spectral Analysis
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Synthesized audio exhibits subtle harmonic phase mismatch across higher formant
-              frequencies that neural vocoders fail to reconstruct continuously.
+              Extracts 88-dimensional MFCC, delta, and spectral envelope descriptors from standardized
+              16 kHz audio to capture short-term vocal tract characteristics.
             </p>
           </div>
 
@@ -181,11 +191,11 @@ export default function DashboardPage() {
               <Layers className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-semibold text-slate-200">
-              Diffusion Vocoder Artifacts
+              Voice Authenticity Classification
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Analyzes micro-temporal pitch jitter, glottal pulse dynamics, and neural spectral
-              fingerprints left by modern zero-shot voice conversion models.
+              Supervised baseline classifier (StandardScaler + Logistic Regression) trained to estimate
+              probabilities between organic human speech and synthetic audio.
             </p>
           </div>
 
@@ -194,11 +204,11 @@ export default function DashboardPage() {
               <Lock className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-semibold text-slate-200">
-              Acoustic Replay Defense
+              Extensible Service Interface
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Detects electroacoustic transducer coloration, room reverberant impulse response, and
-              re-recording anomalies to block physical playback attacks.
+              Decoupled BaseDetectionService interface allowing seamless drop-in integration of advanced
+              neural architectures (Wav2Vec2, RawNet2, AASIST).
             </p>
           </div>
         </div>

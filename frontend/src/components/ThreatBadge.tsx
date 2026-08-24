@@ -28,7 +28,7 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
             } bg-red-950/40 text-red-400 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.15)] ${className}`}
           >
             {showIcon && <ShieldAlert className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
-            Synthetic / Cloned
+            Synthetic
           </span>
         );
       case 'real':
@@ -39,7 +39,7 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
             } bg-emerald-950/40 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)] ${className}`}
           >
             {showIcon && <ShieldCheck className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
-            Organic / Genuine
+            Real Speech
           </span>
         );
       case 'replay':
@@ -50,7 +50,7 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
             } bg-amber-950/40 text-amber-400 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
           >
             {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
-            Acoustic Replay
+            Replay (Planned)
           </span>
         );
       case 'unknown':
