@@ -1,0 +1,89 @@
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# =========================
+# Runtime / uploads
+# =========================
+uploads/
+storage/
+*.log
+
+# =========================
+# ML datasets
+# =========================
+ml_data/
+data/
+
+# Keep dataset directory structure if needed
+!ml_data/**/
+!data/**/
+
+# =========================
+# ML model artifacts
+# =========================
+models/
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+*.pt
+*.pth
+
+# =========================
+# Database / local runtime
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Build / temporary files
+# =========================
+dist/
+build/
+tmp/
+temp/
+.cache/
