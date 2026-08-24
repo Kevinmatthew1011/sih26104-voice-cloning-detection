@@ -215,7 +215,9 @@ export default function DetectionDetailPage() {
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
                   <span className="text-slate-400">Inference Engine:</span>
-                  <span className="text-cyan-400">{res?.model_version}</span>
+                  <span className="text-cyan-400">
+                    {res?.model_version === 'baseline-v1' ? 'Baseline ML Model (baseline-v1)' : res?.model_version}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">Analysis Latency:</span>

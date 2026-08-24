@@ -106,10 +106,10 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
       </div>
       <div className="flex flex-col">
         <span className="text-xs uppercase tracking-wider text-slate-400 font-mono">
-          Biometric Confidence
+          Model Probability Score
         </span>
-        <span className="text-sm font-semibold text-slate-200">
-          {percentage >= 90 ? 'Definitive Certainty' : percentage >= 75 ? 'High Confidence' : 'Moderate Inconclusive'}
+        <span className="text-sm font-semibold text-slate-200 font-mono">
+          {confidence.toFixed(4)} ({percentage}%)
         </span>
       </div>
     </div>

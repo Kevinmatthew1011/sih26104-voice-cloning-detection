@@ -373,7 +373,9 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               </div>
               <div className="flex justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-500">Engine / Model Version:</span>
-                <span className="text-cyan-400">{result.model_version}</span>
+                <span className="text-cyan-400">
+                  {result.model_version === 'baseline-v1' ? 'Baseline ML Model (baseline-v1)' : result.model_version}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-800/60">
                 <span className="text-slate-500">Inference Latency:</span>
