@@ -200,37 +200,43 @@ Visit `http://localhost:3000` in your browser.
 
 ---
 
-## 🧠 ML Baseline Training & Usage
+## 🧠 ML Baseline Training, Dataset Validation & Research Evaluation
 
-The repository provides a modular, reproducible baseline machine learning pipeline.
+The repository provides a research-grade, reproducible machine learning evaluation and training pipeline.
 
 > [!NOTE]
-> **Dataset Rule**: The repository does not include audio training data. You must add approved audio files into `ml_data/train/real/` and `ml_data/train/synthetic/` before running the training script.
+> **Dataset Rule**: The repository does not include pre-packaged training data. You must add approved audio files into `ml_data/train/real/` and `ml_data/train/synthetic/` before running the training script.
 
-### 1. Training the Model
+### 1. Dataset Provenance & Integrity Protocols
+- **Manifest Template**: Document dataset source, license, and speaker mapping in `ml_data/manifest.json` (see template at `ml_data/manifest.template.json`).
+- **Automated Validation**: `app.ml.dataset` verifies file decodability, catches empty/corrupted files, and prevents cross-split data leakage via SHA-256 hash collision checks.
+- **Speaker Leakage Prevention**: Enforces speaker-disjoint splitting ($\text{Train} \cap \text{Test} = \emptyset$) to prevent identity memorization.
+- **Research Evaluation Metrics**: Computes Accuracy, Precision, Recall, F1, ROC-AUC, and Equal Error Rate (EER).
+
+### 2. Training the Model
 ```bash
 cd backend
 source .venv/bin/activate
 
-# Train baseline model on approved dataset
-python -m app.ml.train
+# Execute training & research-grade evaluation pipeline
+python -m app.ml.train --random-seed 42
 ```
 
 When training completes, it generates:
 - `models/baseline-v1/model.joblib`: Serialized StandardScaler + Logistic Regression model.
-- `models/baseline-v1/metadata.json`: Model hyperparameters, evaluation metrics (Accuracy, Precision, Recall, F1), and training details.
+- `models/baseline-v1/metadata.json`: Model hyperparameters, dataset provenance, speaker counts, evaluation metrics (Accuracy, Precision, Recall, F1, ROC-AUC, EER), and confusion matrix.
 
-### 2. Activating the Baseline Engine
+### 3. Activating the Baseline Engine
 Set in `.env`:
 ```bash
 DETECTION_ENGINE=baseline
 ```
 
-### 3. Baseline Pipeline Limitations:
+### 4. Baseline Pipeline Limitations:
 - **3-Second Window**: Only the first 3.0 seconds (48,000 samples at 16 kHz) of an audio file are analyzed. Audio longer than 3 seconds is truncated.
 - **Probability Estimates**: Output probabilities from `predict_proba()` represent raw model score estimates and are not calibrated confidence metrics.
 
-For comprehensive ML documentation, architecture parameters, and research limitations, see [docs/ml-baseline.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/ml-baseline.md).
+For comprehensive dataset provenance, speaker leakage prevention, and EER methodology, see [docs/dataset-and-evaluation.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/dataset-and-evaluation.md) and [docs/ml-baseline.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/ml-baseline.md).
 
 ---
 

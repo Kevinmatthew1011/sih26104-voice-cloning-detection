@@ -103,29 +103,32 @@ The feature extraction pipeline computes an **88-dimensional fixed vector**:
 
 ---
 
-## 6. Dataset Directory Structure
+## 6. Dataset Structure & Research Provenance
 
 The dataset directory layout is located at the workspace root in `ml_data/`:
 
 ```
 ml_data/
+├── manifest.json              # Dataset provenance & protocol (see manifest.template.json)
 ├── train/
-│   ├── real/          # Place genuine human audio recordings (.wav, .mp3, etc.)
-│   └── synthetic/     # Place AI voice clones / synthesized speech audio
-├── validation/        # Optional dedicated validation set
+│   ├── real/                  # Place genuine human audio recordings (.wav, .mp3, etc.)
+│   └── synthetic/             # Place AI voice clones / synthesized speech audio
+├── validation/                # Optional dedicated validation set
 │   ├── real/
 │   └── synthetic/
-└── test/              # Optional dedicated test set
+└── test/                      # Optional dedicated test set
     ├── real/
     └── synthetic/
 ```
 
 > [!CAUTION]
-> If `ml_data/train/real` or `ml_data/train/synthetic` is missing or contains 0 audio files, the training script will terminate immediately with an error.
+> If `ml_data/train/real` or `ml_data/train/synthetic` is missing or contains 0 audio files, the training script will terminate immediately with an actionable error.
+
+For comprehensive dataset provenance standards, speaker leakage prevention, SHA-256 duplicate detection, and Equal Error Rate (EER) methodology, see [docs/dataset-and-evaluation.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/dataset-and-evaluation.md).
 
 ---
 
-## 7. Training the Baseline Model
+## 7. Training & Evaluating the Baseline Model
 
 Once you have added approved real and synthetic audio files into `ml_data/train/`:
 
@@ -133,7 +136,7 @@ Once you have added approved real and synthetic audio files into `ml_data/train/
 cd backend
 source .venv/bin/activate
 
-# Execute training pipeline
+# Execute training pipeline (runs validation, feature extraction, training, and EER evaluation)
 python -m app.ml.train
 ```
 
@@ -143,6 +146,7 @@ python -m app.ml.train \
     --data-dir ../ml_data \
     --output-dir ../models/baseline-v1 \
     --test-size 0.2 \
+    --random-seed 42 \
     --c-reg 1.0 \
     --max-iter 1000
 ```
@@ -150,7 +154,7 @@ python -m app.ml.train \
 ### Outputs Produced:
 When training completes successfully on a real dataset, it exports:
 1. `models/baseline-v1/model.joblib`: Serialized `StandardScaler` + `LogisticRegression` pipeline.
-2. `models/baseline-v1/metadata.json`: Full model provenance, hyperparameters, evaluation metrics (Accuracy, Precision, Recall, F1, Confusion Matrix), and dataset split strategies.
+2. `models/baseline-v1/metadata.json`: Full model provenance, hyperparameters, evaluation metrics (Accuracy, Precision, Recall, F1, ROC-AUC, EER, Confusion Matrix), dataset split strategies, and speaker partition records.
 
 ---
 

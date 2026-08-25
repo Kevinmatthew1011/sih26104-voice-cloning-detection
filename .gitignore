@@ -52,14 +52,22 @@ storage/
 *.log
 
 # =========================
-# ML datasets
+# ML datasets & audio files
 # =========================
-ml_data/
+ml_data/**/*.wav
+ml_data/**/*.mp3
+ml_data/**/*.ogg
+ml_data/**/*.flac
+ml_data/**/*.m4a
+ml_data/**/*.aac
+ml_data/**/*.webm
 data/
 
-# Keep dataset directory structure if needed
+# Keep dataset directory structure and manifest files
 !ml_data/**/
-!data/**/
+!ml_data/**/.gitkeep
+!ml_data/*.json
+!ml_data/**/*.json
 
 # =========================
 # ML model artifacts

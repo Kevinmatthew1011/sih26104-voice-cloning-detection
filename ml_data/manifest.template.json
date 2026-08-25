@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "dataset_name": "EXAMPLE_VOICE_ANTISPOOF_DATASET",
+  "dataset_version": "v1.0.0",
+  "source": "https://example-provenance-repo.org/datasets/voice-spoof-v1",
+  "license": "CC-BY-4.0",
+  "description": "Template manifest describing dataset provenance, protocol, and speaker partitioning for SIH26104 Voice Cloning Detection.",
+  "preparation_date": "2026-08-25T00:00:00Z",
+  "class_mapping": {
+    "0": "real",
+    "1": "synthetic"
+  },
+  "speaker_id_available": true,
+  "recording_id_available": true,
+  "protocol": "speaker_independent_disjoint_split",
+  "splits": {
+    "train": {
+      "real_count": 0,
+      "synthetic_count": 0,
+      "speaker_count": 0,
+      "speakers": []
+    },
+    "validation": {
+      "real_count": 0,
+      "synthetic_count": 0,
+      "speaker_count": 0,
+      "speakers": []
+    },
+    "test": {
+      "real_count": 0,
+      "synthetic_count": 0,
+      "speaker_count": 0,
+      "speakers": []
+    }
+  },
+  "notes": "Ensure speaker IDs in train, validation, and test splits are strictly non-overlapping to prevent identity leakage.",
+  "limitations": [
+    "Baseline statistical feature extractors (MFCCs) capture acoustic envelopes but may struggle against zero-shot neural diffusion vocoders.",
+    "Acoustic room impulse responses or lossy audio codecs (e.g., MP3/AAC) can degrade high-frequency phase indicators."
+  ]
+}
