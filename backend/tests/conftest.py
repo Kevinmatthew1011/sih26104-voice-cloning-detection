@@ -27,13 +27,18 @@ TestingAsyncSessionLocal = async_sessionmaker(
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_environment():
+    orig_upload_dir = settings.UPLOAD_DIR
+    orig_engine = settings.DETECTION_ENGINE
     settings.UPLOAD_DIR = settings.UPLOAD_DIR / "test_uploads"
     settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    settings.DETECTION_ENGINE = "mock"
     yield
     # Cleanup test uploads
     import shutil
     if settings.UPLOAD_DIR.exists():
         shutil.rmtree(settings.UPLOAD_DIR, ignore_errors=True)
+    settings.UPLOAD_DIR = orig_upload_dir
+    settings.DETECTION_ENGINE = orig_engine
 
 
 @pytest_asyncio.fixture
