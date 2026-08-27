@@ -24,6 +24,22 @@ class CaseStatusEnum(str, Enum):
     FAILED = "FAILED"
 
 
+class ActionEnum(str, Enum):
+    ALLOW = "ALLOW"
+    VERIFY = "VERIFY"
+    BLOCK = "BLOCK"
+
+
+class SecurityDecisionDTO(BaseModel):
+    action: ActionEnum
+    decision_message: str
+    synthetic_probability: float = Field(..., ge=0.0, le=1.0)
+    policy_version: str = "v1.0"
+    decision_source: str = "policy_v1.0"
+    reason_codes: List[str] = Field(default_factory=list)
+    recommended_steps: List[str] = Field(default_factory=list)
+
+
 class DetectionResultDTO(BaseModel):
     """Data Transfer Object returned by the Detection Service Interface."""
     engine_type: str
@@ -36,6 +52,9 @@ class DetectionResultDTO(BaseModel):
     explanation: Optional[str] = None
     spectral_artifacts: Optional[Dict[str, Any]] = None
     metadata_json: Optional[Dict[str, Any]] = None
+    action: Optional[ActionEnum] = None
+    decision_message: Optional[str] = None
+    decision: Optional[SecurityDecisionDTO] = None
 
 
 class DetectionResultResponse(BaseModel):
@@ -54,6 +73,9 @@ class DetectionResultResponse(BaseModel):
     explanation: Optional[str] = None
     spectral_artifacts: Optional[Dict[str, Any]] = None
     metadata_json: Optional[Dict[str, Any]] = None
+    action: Optional[ActionEnum] = None
+    decision_message: Optional[str] = None
+    decision: Optional[SecurityDecisionDTO] = None
 
     model_config = ConfigDict(from_attributes=True)
 

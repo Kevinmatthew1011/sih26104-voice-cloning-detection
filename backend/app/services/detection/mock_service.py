@@ -166,8 +166,21 @@ class MockDetectionService(BaseDetectionService):
         end_time = time.perf_counter()
         processing_time_ms = int((end_time - start_time) * 1000)
 
+        # Compute explicit synthetic probability for mock service
+        if prediction == PredictionEnum.SYNTHETIC:
+            synth_prob = confidence
+        elif prediction == PredictionEnum.REAL:
+            synth_prob = 1.0 - confidence
+        elif prediction == PredictionEnum.REPLAY:
+            synth_prob = confidence
+        else:
+            synth_prob = 0.50
+
         # Extensible metadata for future features
         forensic_metadata = {
+            "engine_type": "mock",
+            "synthetic_probability": round(synth_prob, 4),
+            "real_probability": round(1.0 - synth_prob, 4),
             "file_size_bytes": file_size_bytes,
             "detected_mime_type": mime_type,
             "duration_seconds": duration_seconds,

@@ -280,6 +280,8 @@ class AASISTInferenceEngine:
             },
             "metadata_json": {
                 "engine_type": "aasist",
+                "synthetic_probability": round(prob_synthetic, 4),
+                "real_probability": round(prob_real, 4),
                 "model_version": self.metadata.get("model_version", "aasist-v1"),
                 "checkpoint_sha256": OFFICIAL_AASIST_SHA256,
                 "cm_score": round(cm_score, 4),

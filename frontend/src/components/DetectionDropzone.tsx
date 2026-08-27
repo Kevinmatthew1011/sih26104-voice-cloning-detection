@@ -344,6 +344,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               <div className="flex items-center gap-3 mt-1">
                 <ThreatBadge prediction={result.prediction} size="lg" />
                 <ThreatBadge riskLevel={result.risk_level} size="md" />
+                {result.action && <ThreatBadge action={result.action} size="md" />}
               </div>
             </div>
 
@@ -356,6 +357,38 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Security Decision & Prevention Directives */}
+          {result.action && (
+            <div
+              className={`p-4 rounded-xl border ${
+                result.action === 'BLOCK'
+                  ? 'bg-red-950/30 border-red-500/40 text-red-300'
+                  : result.action === 'VERIFY'
+                  ? 'bg-amber-950/30 border-amber-500/40 text-amber-300'
+                  : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+              } space-y-2`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider">
+                  Security Directive: {result.action === 'BLOCK' ? 'Block Voice-Only Authorization' : result.action === 'VERIFY' ? 'Step-Up Verification Required' : 'Standard Authorization Permitted'}
+                </span>
+                <span className="font-mono text-[10px] opacity-70">
+                  Policy {result.decision?.policy_version || 'v1.0'}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed">
+                {result.decision_message || result.decision?.decision_message}
+              </p>
+              {result.decision?.recommended_steps && result.decision.recommended_steps.length > 0 && (
+                <ul className="list-disc list-inside text-[11px] opacity-90 space-y-0.5 pt-1">
+                  {result.decision.recommended_steps.map((step, idx) => (
+                    <li key={idx}>{step}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ConfidenceGauge

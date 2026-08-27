@@ -132,6 +132,7 @@ export default function DetectionDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               {res && <ThreatBadge prediction={res.prediction} size="lg" />}
               {res && <ThreatBadge riskLevel={res.risk_level} size="md" />}
+              {res?.action && <ThreatBadge action={res.action} size="md" />}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
@@ -215,14 +216,14 @@ export default function DetectionDetailPage() {
 
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-300 leading-relaxed">
                 {res?.explanation ||
-                  'Baseline ML classification using MFCC and spectral features. The model estimates the probability that this recording belongs to the synthetic speech class. This baseline does not identify a specific voice-cloning architecture.'}
+                  'Deep neural network voice cloning detection. The model estimates the probability that this recording belongs to the synthetic speech class.'}
               </div>
 
               <div className="space-y-2 text-xs font-mono">
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
                   <span className="text-slate-400">Attack Classification:</span>
                   <span className="font-semibold text-slate-200">
-                    {res?.attack_type || 'Not classified by baseline'}
+                    {res?.attack_type || 'Not classified'}
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
@@ -240,40 +241,66 @@ export default function DetectionDetailPage() {
 
             {/* Countermeasure & Action Plan */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
-              <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
-                <Lock className="w-4 h-4 text-cyan-400" />
-                <span>Recommended Response Protocol</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
+                  <Lock className="w-4 h-4 text-cyan-400" />
+                  <span>Security Directive & Response</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-500">
+                  Policy {res?.decision?.policy_version || 'v1.0'}
+                </span>
               </div>
 
-              {res?.risk_level === 'high' ? (
+              {res?.action === 'BLOCK' || res?.risk_level === 'high' ? (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs flex items-start gap-3">
                     <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">HIGH RISK: Potential Synthetic Speech</span>
-                      <span>Recommended action: Request secondary verification before relying on this recording.</span>
+                      <span className="font-bold block uppercase tracking-wider">BLOCK: Voice-Only Authorization Denied</span>
+                      <span className="mt-0.5 block leading-relaxed">
+                        {res?.decision_message || res?.decision?.decision_message || "Strong synthetic voice indicators detected. Do not trust voice-only authorization."}
+                      </span>
                     </div>
                   </div>
 
-                  <ul className="text-xs text-slate-300 space-y-2 font-mono list-disc list-inside">
-                    <li>Request out-of-band identity confirmation from the caller.</li>
-                    <li>Conduct secondary challenge question or video verification.</li>
-                    <li>Flag recording for manual supervisor security review.</li>
+                  <ul className="text-xs text-slate-300 space-y-1.5 font-mono list-disc list-inside">
+                    {(res?.decision?.recommended_steps && res.decision.recommended_steps.length > 0
+                      ? res.decision.recommended_steps
+                      : [
+                          "Do not approve sensitive actions based only on this voice recording.",
+                          "Require out-of-band identity verification.",
+                          "Escalate the event to Fraud/Security Operations.",
+                          "Preserve the recording and detection metadata for review."
+                        ]
+                    ).map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
                   </ul>
                 </div>
-              ) : res?.risk_level === 'medium' ? (
+              ) : res?.action === 'VERIFY' || res?.risk_level === 'medium' ? (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-400 text-xs flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">MEDIUM RISK: Inconclusive Signal</span>
-                      <span>Recommended action: Verify speaker identity via an alternate communication channel.</span>
+                      <span className="font-bold block uppercase tracking-wider">VERIFY: Step-Up Verification Required</span>
+                      <span className="mt-0.5 block leading-relaxed">
+                        {res?.decision_message || res?.decision?.decision_message || "Suspicious voice characteristics detected. Perform additional identity verification."}
+                      </span>
                     </div>
                   </div>
 
-                  <ul className="text-xs text-slate-300 space-y-2 font-mono list-disc list-inside">
-                    <li>Prompt caller with dynamic randomized challenge phrase.</li>
-                    <li>Re-record audio with improved microphone signal-to-noise ratio.</li>
+                  <ul className="text-xs text-slate-300 space-y-1.5 font-mono list-disc list-inside">
+                    {(res?.decision?.recommended_steps && res.decision.recommended_steps.length > 0
+                      ? res.decision.recommended_steps
+                      : [
+                          "Trigger out-of-band step-up authentication (SMS/TOTP/Push challenge).",
+                          "Request secondary knowledge-based verification.",
+                          "Defer high-value transaction approvals.",
+                          "Preserve the recording and detection metadata for review."
+                        ]
+                    ).map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
                   </ul>
                 </div>
               ) : (
@@ -281,14 +308,24 @@ export default function DetectionDetailPage() {
                   <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-3">
                     <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">LOW RISK: Organic Speech Indicators</span>
-                      <span>Signal features are consistent with organic speech baseline parameters.</span>
+                      <span className="font-bold block uppercase tracking-wider">ALLOW: Standard Authorization Permitted</span>
+                      <span className="mt-0.5 block leading-relaxed">
+                        {res?.decision_message || res?.decision?.decision_message || "No strong synthetic voice indicators detected."}
+                      </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 font-mono">
-                    Standard processing may proceed according to policy.
-                  </p>
+                  <ul className="text-xs text-slate-300 space-y-1.5 font-mono list-disc list-inside">
+                    {(res?.decision?.recommended_steps && res.decision.recommended_steps.length > 0
+                      ? res.decision.recommended_steps
+                      : [
+                          "No strong synthetic voice indicators detected. Continue according to standard authorization policy.",
+                          "Maintain standard transaction monitoring."
+                        ]
+                    ).map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

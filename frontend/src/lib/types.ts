@@ -1,6 +1,17 @@
 export type PredictionType = 'real' | 'synthetic' | 'replay' | 'unknown';
 export type RiskLevelType = 'low' | 'medium' | 'high';
 export type CaseStatusType = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type ActionType = 'ALLOW' | 'VERIFY' | 'BLOCK';
+
+export interface SecurityDecision {
+  action: ActionType;
+  decision_message: string;
+  synthetic_probability: number;
+  policy_version: string;
+  decision_source?: string | null;
+  reason_codes: string[];
+  recommended_steps: string[];
+}
 
 export interface DetectionResult {
   id: string;
@@ -15,6 +26,9 @@ export interface DetectionResult {
   explanation?: string | null;
   spectral_artifacts?: Record<string, any> | null;
   metadata_json?: Record<string, any> | null;
+  action?: ActionType | null;
+  decision_message?: string | null;
+  decision?: SecurityDecision | null;
 }
 
 export interface DetectionCaseSummary {

@@ -1,10 +1,11 @@
 import React from 'react';
-import { PredictionType, RiskLevelType } from '../lib/types';
-import { ShieldCheck, ShieldAlert, AlertTriangle, HelpCircle } from 'lucide-react';
+import { PredictionType, RiskLevelType, ActionType } from '../lib/types';
+import { ShieldCheck, ShieldAlert, AlertTriangle, HelpCircle, Lock, CheckCircle2 } from 'lucide-react';
 
 interface ThreatBadgeProps {
   prediction?: PredictionType;
   riskLevel?: RiskLevelType;
+  action?: ActionType;
   showIcon?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
@@ -13,10 +14,49 @@ interface ThreatBadgeProps {
 export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
   prediction,
   riskLevel,
+  action,
   showIcon = true,
   size = 'md',
   className = '',
 }) => {
+  // If security action is provided
+  if (action) {
+    switch (action) {
+      case 'BLOCK':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
+            } bg-red-950/60 text-red-400 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] ${className}`}
+          >
+            {showIcon && <Lock className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            BLOCK
+          </span>
+        );
+      case 'VERIFY':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
+            } bg-amber-950/60 text-amber-400 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)] ${className}`}
+          >
+            {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            VERIFY (MFA)
+          </span>
+        );
+      case 'ALLOW':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
+            } bg-emerald-950/60 text-emerald-400 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${className}`}
+          >
+            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            ALLOW
+          </span>
+        );
+    }
+  }
   // If prediction is provided
   if (prediction) {
     switch (prediction) {

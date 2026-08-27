@@ -14,11 +14,56 @@ from app.schemas.detection import (
     DetectionCaseSummaryResponse,
     PredictionEnum,
     RiskLevelEnum,
+    ActionEnum,
+    SecurityDecisionDTO,
 )
 from app.services.audio_validator import AudioValidator
 from app.services.audio_metadata import AudioMetadataService
 from app.services.storage import AudioStorageService
 from app.services.detection.factory import get_detection_service
+from app.services.decision_engine import SecurityDecisionEngine
+
+
+def build_detection_result_response(result: DetectionResult) -> DetectionResultResponse:
+    """
+    Helper to deserialize detection result response.
+
+    Auditability Policy:
+    - If metadata_json contains 'decision', returns the verified persisted SecurityDecisionDTO.
+    - If metadata_json lacks 'decision' (legacy historical record), action and decision remain None.
+      Historical records are never silently forged or misrepresented as Policy v1.0 decisions.
+    """
+    meta = result.metadata_json or {}
+    decision_data = meta.get("decision")
+    decision_dto: Optional[SecurityDecisionDTO] = None
+    action_val: Optional[ActionEnum] = None
+    decision_msg: Optional[str] = None
+
+    if decision_data and isinstance(decision_data, dict):
+        try:
+            decision_dto = SecurityDecisionDTO(**decision_data)
+            action_val = decision_dto.action
+            decision_msg = decision_dto.decision_message
+        except Exception:
+            decision_dto = None
+
+    return DetectionResultResponse(
+        id=result.id,
+        engine_type=result.engine_type,
+        prediction=PredictionEnum(result.prediction),
+        confidence=result.confidence,
+        risk_level=RiskLevelEnum(result.risk_level),
+        model_version=result.model_version,
+        processing_time_ms=result.processing_time_ms,
+        created_at=result.created_at,
+        attack_type=result.attack_type,
+        explanation=result.explanation,
+        spectral_artifacts=result.spectral_artifacts,
+        metadata_json=result.metadata_json,
+        action=action_val,
+        decision_message=decision_msg,
+        decision=decision_dto,
+    )
 
 router = APIRouter()
 
@@ -81,7 +126,28 @@ async def create_detection(
             duration_seconds=metadata.duration,
         )
 
-        # 6. Persist Detection Result
+        # 6. Evaluate Security Decision & Prevention Policy
+        synth_prob = None
+        if dto.metadata_json and "synthetic_probability" in dto.metadata_json:
+            synth_prob = float(dto.metadata_json["synthetic_probability"])
+        elif dto.prediction == PredictionEnum.SYNTHETIC:
+            synth_prob = float(dto.confidence)
+        else:
+            synth_prob = float(round(1.0 - dto.confidence, 4))
+
+        decision = SecurityDecisionEngine.evaluate(
+            prediction=dto.prediction.value,
+            synthetic_probability=synth_prob,
+            risk_level=dto.risk_level.value,
+            engine_type=dto.engine_type,
+            extra_telemetry=dto.metadata_json,
+        )
+
+        meta_payload = dict(dto.metadata_json or {})
+        meta_payload["decision"] = decision.model_dump()
+        meta_payload["synthetic_probability"] = synth_prob
+
+        # 7. Persist Detection Result
         result = DetectionResult(
             detection_case_id=case.id,
             engine_type=dto.engine_type,
@@ -93,27 +159,14 @@ async def create_detection(
             attack_type=dto.attack_type,
             explanation=dto.explanation,
             spectral_artifacts=dto.spectral_artifacts,
-            metadata_json=dto.metadata_json,
+            metadata_json=meta_payload,
         )
         case.status = "COMPLETED"
         db.add(result)
         await db.commit()
         await db.refresh(result)
 
-        return DetectionResultResponse(
-            id=result.id,
-            engine_type=result.engine_type,
-            prediction=PredictionEnum(result.prediction),
-            confidence=result.confidence,
-            risk_level=RiskLevelEnum(result.risk_level),
-            model_version=result.model_version,
-            processing_time_ms=result.processing_time_ms,
-            created_at=result.created_at,
-            attack_type=result.attack_type,
-            explanation=result.explanation,
-            spectral_artifacts=result.spectral_artifacts,
-            metadata_json=result.metadata_json,
-        )
+        return build_detection_result_response(result)
 
     except Exception as e:
         case.status = "FAILED"
@@ -171,22 +224,7 @@ async def list_detections(
 
     items = []
     for c in cases:
-        result_dto = None
-        if c.result:
-            result_dto = DetectionResultResponse(
-                id=c.result.id,
-                engine_type=c.result.engine_type,
-                prediction=PredictionEnum(c.result.prediction),
-                confidence=c.result.confidence,
-                risk_level=RiskLevelEnum(c.result.risk_level),
-                model_version=c.result.model_version,
-                processing_time_ms=c.result.processing_time_ms,
-                created_at=c.result.created_at,
-                attack_type=c.result.attack_type,
-                explanation=c.result.explanation,
-                spectral_artifacts=c.result.spectral_artifacts,
-                metadata_json=c.result.metadata_json,
-            )
+        result_dto = build_detection_result_response(c.result) if c.result else None
         items.append(
             DetectionCaseSummaryResponse(
                 id=c.id,
@@ -241,22 +279,7 @@ async def get_detection(
             detail=f"Detection case '{case_id}' not found."
         )
 
-    result_dto = None
-    if case.result:
-        result_dto = DetectionResultResponse(
-            id=case.result.id,
-            engine_type=case.result.engine_type,
-            prediction=PredictionEnum(case.result.prediction),
-            confidence=case.result.confidence,
-            risk_level=RiskLevelEnum(case.result.risk_level),
-            model_version=case.result.model_version,
-            processing_time_ms=case.result.processing_time_ms,
-            created_at=case.result.created_at,
-            attack_type=case.result.attack_type,
-            explanation=case.result.explanation,
-            spectral_artifacts=case.result.spectral_artifacts,
-            metadata_json=case.result.metadata_json,
-        )
+    result_dto = build_detection_result_response(case.result) if case.result else None
 
     return DetectionCaseDetailResponse(
         id=case.id,

@@ -128,6 +128,8 @@ class BaselineInferenceEngine:
             },
             "metadata_json": {
                 "engine_type": "baseline_ml",
+                "synthetic_probability": round(prob_synthetic, 4),
+                "real_probability": round(prob_real, 4),
                 "classifier": "LogisticRegression",
                 "feature_version": self.feature_extractor.FEATURE_VERSION,
                 "file_size_bytes": file_size_bytes,
