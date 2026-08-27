@@ -282,6 +282,12 @@ To demonstrate the full detection and prevention lifecycle to judges:
 
 ---
 
+## 👤 Author & Maintainer
+
+**Kevin Matthew S**
+
+---
+
 ## 📄 License & Attribution
 
 Developed for the Smart India Hackathon (SIH 2026) under Problem Statement **SIH26104**.
