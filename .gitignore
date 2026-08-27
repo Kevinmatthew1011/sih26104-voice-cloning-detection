@@ -70,15 +70,18 @@ data/
 !ml_data/**/*.json
 
 # =========================
-# ML model artifacts
+# ML model artifacts & feature caches
 # =========================
-models/
+/models/
 *.joblib
 *.pkl
 *.pickle
 *.onnx
 *.pt
 *.pth
+*.npz
+ml_cache/
+.cache/
 
 # =========================
 # Database / local runtime
@@ -95,3 +98,6 @@ build/
 tmp/
 temp/
 .cache/
+
+# Raw research datasets - local only
+/datasets/

@@ -4,6 +4,7 @@ export type CaseStatusType = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export interface DetectionResult {
   id: string;
+  engine_type: string;
   prediction: PredictionType;
   confidence: number;
   risk_level: RiskLevelType;
@@ -22,6 +23,8 @@ export interface DetectionCaseSummary {
   file_size_bytes: number;
   mime_type: string;
   duration_seconds?: number | null;
+  sample_rate?: number | null;
+  channels?: number | null;
   status: CaseStatusType;
   created_at: string;
   updated_at: string;
@@ -31,9 +34,12 @@ export interface DetectionCaseSummary {
 export interface DetectionCaseDetail {
   id: string;
   filename: string;
+  file_hash?: string | null;
   file_size_bytes: number;
   mime_type: string;
   duration_seconds?: number | null;
+  sample_rate?: number | null;
+  channels?: number | null;
   status: CaseStatusType;
   created_at: string;
   updated_at: string;
