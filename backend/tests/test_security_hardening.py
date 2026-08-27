@@ -72,12 +72,15 @@ class TestUploadHardening:
         assert "Corrupt or invalid container header" in resp.json()["detail"]
 
     async def test_valid_browser_webm_header_accepted(self, client: AsyncClient):
-        # Plausible EBML header with webm DocType
-        ebml_header = b"\x1a\x45\xdf\xa3\x9f\x42\x86\x81\x01\x42\xf7\x81\x01\x42\xf2\x81\x04\x42\xf3\x81\x08\x42\x82\x84webm\x42\x87\x81\x04\x42\x85\x81\x02" + b"\x00" * 200
-        files = {"file": ("mic_sample_recording.webm", ebml_header, "audio/webm")}
+        # Generate real browser MediaRecorder-compatible WebM/Opus audio
+        from tests.test_audio_decoder import make_test_webm_opus_bytes
+        webm_bytes = make_test_webm_opus_bytes(duration_seconds=2.0, sample_rate=48000)
+        files = {"file": ("mic_sample_recording.webm", webm_bytes, "audio/webm")}
         resp = await client.post("/api/v1/detections", files=files)
         assert resp.status_code == status.HTTP_201_CREATED
-        assert resp.json()["id"] is not None
+        data = resp.json()
+        assert data["id"] is not None
+        assert data["prediction"] in ["real", "synthetic", "replay", "unknown", "inconclusive"]
 
     async def test_valid_ogg_recording_accepted(self, client: AsyncClient):
         # Generate valid Ogg Vorbis/Opus

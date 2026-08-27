@@ -64,43 +64,10 @@ class AudioPreprocessor:
             return y.flatten().astype(np.float32), sr
 
         try:
-            if isinstance(audio_source, (str, Path)):
-                path = Path(audio_source)
-                if not path.exists():
-                    raise FileNotFoundError(f"Audio file not found: {path}")
-                if path.stat().st_size == 0:
-                    raise ValueError(f"Audio file is empty (0 bytes): {path}")
-                
-                # Load with soundfile (standard shape: (samples,) or (samples, channels))
-                try:
-                    y, sr = sf.read(str(path), dtype="float32")
-                    if self.mono and y.ndim > 1:
-                        y = np.mean(y, axis=1)
-                except Exception:
-                    y, sr = librosa.load(str(path), sr=None, mono=self.mono)
-                    
-            elif isinstance(audio_source, (bytes, io.BytesIO)):
-                bio = io.BytesIO(audio_source) if isinstance(audio_source, bytes) else audio_source
-                bio.seek(0)
-                if len(bio.getvalue()) == 0:
-                    raise ValueError("Audio byte buffer is empty (0 bytes).")
-                try:
-                    y, sr = sf.read(bio, dtype="float32")
-                    if self.mono and y.ndim > 1:
-                        y = np.mean(y, axis=1)
-                except Exception:
-                    bio.seek(0)
-                    y, sr = librosa.load(bio, sr=None, mono=self.mono)
-            else:
-                raise TypeError(f"Unsupported audio source type: {type(audio_source)}")
-
+            from app.ml.audio_decoder import decode_audio
+            return decode_audio(audio_source, target_sr=self.target_sr, mono=self.mono)
         except Exception as e:
             raise ValueError(f"Failed to decode audio source: {str(e)}") from e
-
-        if y is None or len(y) == 0:
-            raise ValueError("Decoded audio signal contains no samples.")
-
-        return y.flatten().astype(np.float32), sr
 
     def process(
         self,

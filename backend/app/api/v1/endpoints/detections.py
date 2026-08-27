@@ -237,10 +237,10 @@ async def create_detection(
             except Exception as clean_err:
                 logger.warning(f"Failed to clean up orphan audio file {saved_path}: {clean_err}")
         case.status = "FAILED"
-        await db.commit()
+        logger.warning(f"event=detection_failed case_id={case.id} error={e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Audio decoding or analysis failed: {str(e)}"
+            detail="Audio decoding or analysis failed. The uploaded file is corrupt or in an unparseable format."
         )
 
     except Exception as e:

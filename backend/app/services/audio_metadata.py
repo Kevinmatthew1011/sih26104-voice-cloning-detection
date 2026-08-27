@@ -36,13 +36,14 @@ class AudioMetadataService:
         # 2. Inspect audio container properties without decoding entire audio buffer into memory
         if len(content) > 0:
             try:
-                bio = io.BytesIO(content)
-                info = sf.info(bio)
-                sample_rate = int(info.samplerate)
-                channels = int(info.channels)
-                duration = round(float(info.duration), 2)
+                from app.ml.audio_decoder import probe_audio_stream
+                meta = probe_audio_stream(content)
+                sample_rate = meta.get("sample_rate")
+                channels = meta.get("channels")
+                dur = meta.get("duration")
+                duration = round(float(dur), 2) if dur is not None else None
             except Exception:
-                # Safe fallback for codecs or headers where soundfile cannot inspect metadata in-memory
+                # Safe fallback for codecs or headers where decoder cannot inspect metadata
                 sample_rate = None
                 channels = None
                 duration = None

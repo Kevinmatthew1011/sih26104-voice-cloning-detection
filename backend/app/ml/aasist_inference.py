@@ -383,38 +383,8 @@ class AASISTInferenceEngine:
 
     def _load_and_resample_full(self, audio_source: Union[str, Path, bytes, np.ndarray]) -> tuple[np.ndarray, int]:
         """Decode and resample audio to 16 kHz mono without length truncation. Returns (wav_16k, native_sample_rate)."""
-        if isinstance(audio_source, (str, Path)):
-            audio_path = Path(audio_source)
-            if not audio_path.exists():
-                raise FileNotFoundError(f"Audio file '{audio_path}' does not exist.")
-            try:
-                wav, sr = sf.read(str(audio_path), dtype="float32")
-            except Exception:
-                wav, sr = librosa.load(str(audio_path), sr=None, mono=False)
-        elif isinstance(audio_source, bytes):
-            if len(audio_source) == 0:
-                raise ValueError("Empty audio bytes provided.")
-            try:
-                wav, sr = sf.read(io.BytesIO(audio_source), dtype="float32")
-            except Exception:
-                wav, sr = librosa.load(io.BytesIO(audio_source), sr=None, mono=False)
-        elif isinstance(audio_source, np.ndarray):
-            wav = audio_source.astype(np.float32)
-            sr = TARGET_SAMPLE_RATE
-        else:
-            raise TypeError(f"Unsupported audio source type: {type(audio_source)}")
-
-        native_sr = int(sr)
-
-        # Convert to mono if multi-channel
-        if wav.ndim > 1:
-            wav = np.mean(wav, axis=1)
-
-        # Resample to 16 kHz if necessary
-        if sr != TARGET_SAMPLE_RATE:
-            wav = librosa.resample(wav, orig_sr=sr, target_sr=TARGET_SAMPLE_RATE)
-
-        return wav, native_sr
+        from app.ml.audio_decoder import decode_audio
+        return decode_audio(audio_source, target_sr=TARGET_SAMPLE_RATE, mono=True)
 
     def preprocess_audio(self, audio_source: Union[str, Path, bytes]) -> np.ndarray:
         """

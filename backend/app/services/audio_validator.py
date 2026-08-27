@@ -1,11 +1,14 @@
 import io
 import os
 import struct
+import logging
 from pathlib import Path
 from typing import Tuple, Optional
 from fastapi import UploadFile, HTTPException, status
 import soundfile as sf
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 CHUNK_SIZE = 64 * 1024  # 64 KB streaming chunk
@@ -128,20 +131,14 @@ class AudioValidator:
         Attempts a safe decoder inspection of the audio payload.
         Ensures that syntactically plausible headers also contain parseable audio streams.
         """
+        from app.ml.audio_decoder import probe_audio_stream
         try:
-            bio = io.BytesIO(content)
-            info = sf.info(bio)
-            if info.frames <= 0 or info.samplerate <= 0:
-                raise ValueError("Audio stream contains no valid frames or invalid sample rate.")
+            probe_audio_stream(content, ext)
         except Exception as e:
-            # If soundfile cannot decode the format in-memory (e.g. some webm/m4a containers without ffmpeg backend),
-            # verify that at least format plausibility passed and content length is non-trivial.
-            if ext in [".webm", ".m4a", ".aac"]:
-                # Container passed plausibility; allow downstream decoder (librosa/ffmpeg) to parse
-                return
+            logger.warning(f"Audio decodability probe failed for format '{ext}': {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Audio file could not be decoded. File is corrupt or in an unparseable format ({str(e)})."
+                detail=f"Audio file could not be decoded. File is corrupt or in an unparseable format."
             )
 
     @staticmethod
