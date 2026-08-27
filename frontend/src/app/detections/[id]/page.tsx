@@ -17,6 +17,7 @@ import { DetectionCaseDetail } from '../../../lib/types';
 import { ThreatBadge } from '../../../components/ThreatBadge';
 import { ConfidenceGauge } from '../../../components/ConfidenceGauge';
 import { AudioWaveformVisualizer } from '../../../components/AudioWaveformVisualizer';
+import { formatModelDisplayName } from '@/lib/formatters';
 
 export default function DetectionDetailPage() {
   const params = useParams();
@@ -227,9 +228,7 @@ export default function DetectionDetailPage() {
                 <div className="flex justify-between py-2 border-b border-slate-800/60">
                   <span className="text-slate-400">Inference Engine:</span>
                   <span className="text-cyan-400">
-                    {res?.model_version === 'baseline-v1'
-                      ? 'Baseline ML Model (baseline-v1)'
-                      : res?.model_version || 'Mock Detection Engine'}
+                    {formatModelDisplayName(res?.model_version, res?.engine_type)}
                   </span>
                 </div>
                 <div className="flex justify-between py-2">

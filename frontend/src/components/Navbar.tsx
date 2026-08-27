@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { ShieldAlert, Radio, FileText, UploadCloud, Activity } from 'lucide-react';
 import { api } from '../lib/api';
 import { HealthStatus } from '../lib/types';
+import { formatNavbarEngineLabel } from '@/lib/formatters';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -28,7 +29,6 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const isHealthy = health && health.status === 'healthy' && !isError;
-  const isBaseline = health?.detection_engine === 'baseline';
 
   const navLinks = [
     { name: 'Dashboard', href: '/', icon: Activity },
@@ -97,7 +97,7 @@ export const Navbar: React.FC = () => {
               <span className="text-slate-300">
                 API ONLINE <span className="text-slate-600">|</span>{' '}
                 <span className="text-cyan-400 font-semibold">
-                  {isBaseline ? `BASELINE ML · ${health?.model_version || 'baseline-v1'}` : 'MOCK ENGINE'}
+                  {formatNavbarEngineLabel(health?.detection_engine, health?.model_version)}
                 </span>
               </span>
             ) : (
