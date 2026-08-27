@@ -86,6 +86,16 @@ async def test_upload_empty_file_rejected(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_upload_audio_exceeding_duration_limit_rejected_with_400(client: AsyncClient):
+    # 301 seconds exceeds MAX_AUDIO_DURATION_SECONDS (300s)
+    wav_content = create_dummy_wav_bytes(301)
+    files = {"file": ("long_audio.wav", io.BytesIO(wav_content), "audio/wav")}
+    response = await client.post("/api/v1/detections", files=files)
+    assert response.status_code == 400
+    assert "exceeds maximum allowed limit" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_get_detections_history_and_detail(client: AsyncClient):
     # 1. Create a detection
     wav_content = create_dummy_wav_bytes(1)

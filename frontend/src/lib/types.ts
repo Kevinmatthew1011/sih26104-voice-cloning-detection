@@ -100,6 +100,15 @@ export interface ReportAudioEvidence {
   file_sha256?: string | null;
 }
 
+export interface SuspiciousSegment {
+  segment_index: number;
+  start_seconds: number;
+  end_seconds: number;
+  peak_synthetic_probability: number;
+  minimum_cm_score: number;
+  contributing_window_indices?: number[];
+}
+
 export interface ReportModelEvidence {
   engine_type: string;
   model_version: string;
@@ -115,6 +124,17 @@ export interface ReportModelEvidence {
   attack_type?: string | null;
   explanation?: string | null;
   scoring_note?: string | null;
+  analysis_mode?: string | null;
+  window_count?: number | null;
+  window_length_seconds?: number | null;
+  hop_seconds?: number | null;
+  overlap_fraction?: number | null;
+  aggregation_method?: string | null;
+  aggregation_version?: string | null;
+  file_level_synthetic_probability?: number | null;
+  file_level_cm_score?: number | null;
+  suspicious_segments?: SuspiciousSegment[] | null;
+  persisted_window_count?: number | null;
 }
 
 export interface ReportAuditProvenance {

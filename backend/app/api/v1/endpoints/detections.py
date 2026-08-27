@@ -97,6 +97,7 @@ async def create_detection(
 
     # 2. Extract acoustic metadata and compute SHA-256 integrity fingerprint
     metadata = AudioMetadataService.extract_metadata(content)
+    AudioValidator.validate_audio_duration(metadata.duration)
 
     # 3. Initialize Detection Case record
     case = DetectionCase(

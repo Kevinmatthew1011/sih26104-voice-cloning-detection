@@ -1,7 +1,13 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict
-from app.schemas.detection import PredictionEnum, RiskLevelEnum, ActionEnum, SecurityDecisionDTO
+from app.schemas.detection import (
+    PredictionEnum,
+    RiskLevelEnum,
+    ActionEnum,
+    SecurityDecisionDTO,
+    SuspiciousSegmentDTO,
+)
 
 
 class ReportCaseMetadata(BaseModel):
@@ -36,6 +42,12 @@ class ReportModelEvidence(BaseModel):
     attack_type: Optional[str] = None
     explanation: Optional[str] = None
     scoring_note: Optional[str] = "Probability estimates represent uncalibrated model score transformations."
+    analysis_mode: Optional[str] = None
+    window_count: Optional[int] = None
+    window_length_seconds: Optional[float] = None
+    hop_seconds: Optional[float] = None
+    aggregation_method: Optional[str] = None
+    suspicious_segments: Optional[List[SuspiciousSegmentDTO]] = None
 
 
 class ReportAuditProvenance(BaseModel):

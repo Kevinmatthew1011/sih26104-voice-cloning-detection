@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     DETECTION_ENGINE: str = "mock"
     MOCK_MODEL_VERSION: str = "mock-v1"
     
+    # Multi-Window & Audio Limits
+    MAX_AUDIO_DURATION_SECONDS: float = 300.0  # 5 minutes
+    MAX_MULTIWINDOW_WINDOWS: int = 350
+    AASIST_WINDOW_HOP_SAMPLES: int = 16150  # 75% overlap (1.009375s)
+    AASIST_MULTIWINDOW_BATCH_SIZE: int = 16
+    AASIST_DEFAULT_AGGREGATION: str = "max_v1"
+
     # Audio Upload Constraints
     UPLOAD_DIR: Path = Path(__file__).resolve().parent.parent / "uploads"
     MAX_FILE_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB

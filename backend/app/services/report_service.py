@@ -82,6 +82,31 @@ class AuditReportBuilder:
             # Extract device used during the original inference
             device_used = meta.get("device") or spectral.get("device_used")
 
+            # Extract multi-window telemetry if persisted
+            multi_window = meta.get("multi_window")
+            analysis_mode = None
+            window_count = None
+            window_len = None
+            hop_len = None
+            agg_method = None
+            suspicious_segs = None
+
+            if multi_window and isinstance(multi_window, dict):
+                analysis_mode = multi_window.get("analysis_mode")
+                window_count = multi_window.get("window_count")
+                window_len = multi_window.get("window_length_seconds")
+                hop_len = multi_window.get("hop_seconds")
+                agg_method = multi_window.get("aggregation_method")
+                raw_segs = multi_window.get("suspicious_segments")
+                if raw_segs and isinstance(raw_segs, list):
+                    suspicious_segs = []
+                    for seg in raw_segs:
+                        try:
+                            from app.schemas.detection import SuspiciousSegmentDTO
+                            suspicious_segs.append(SuspiciousSegmentDTO(**seg))
+                        except Exception:
+                            pass
+
             model_evidence = ReportModelEvidence(
                 engine_type=res.engine_type,
                 model_version=res.model_version,
@@ -97,6 +122,12 @@ class AuditReportBuilder:
                 attack_type=res.attack_type,
                 explanation=res.explanation,
                 scoring_note=meta.get("uncalibrated_softmax_note") or "Probability estimates represent uncalibrated model score transformations.",
+                analysis_mode=analysis_mode,
+                window_count=window_count,
+                window_length_seconds=window_len,
+                hop_seconds=hop_len,
+                aggregation_method=agg_method,
+                suspicious_segments=suspicious_segs,
             )
 
             # Deserialization of persisted decision object (strict provenance)

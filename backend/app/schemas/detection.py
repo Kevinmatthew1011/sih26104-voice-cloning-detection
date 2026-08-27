@@ -40,6 +40,43 @@ class SecurityDecisionDTO(BaseModel):
     recommended_steps: List[str] = Field(default_factory=list)
 
 
+class WindowTelemetryDTO(BaseModel):
+    """Raw model inference telemetry for an individual audio temporal window."""
+    window_index: int
+    start_seconds: float
+    end_seconds: float
+    synthetic_probability: float = Field(..., ge=0.0, le=1.0)
+    real_probability: float = Field(..., ge=0.0, le=1.0)
+    cm_score: float
+    prediction: PredictionEnum
+
+
+class SuspiciousSegmentDTO(BaseModel):
+    """Merged contiguous time interval of elevated synthetic model activity."""
+    segment_index: int
+    start_seconds: float
+    end_seconds: float
+    peak_synthetic_probability: float = Field(..., ge=0.0, le=1.0)
+    minimum_cm_score: float
+    contributing_window_indices: List[int] = Field(default_factory=list)
+
+
+class MultiWindowMetadataDTO(BaseModel):
+    """Multi-window segmentation and aggregation audit telemetry."""
+    analysis_mode: str  # "single_window" | "multi_window"
+    window_count: int
+    window_length_seconds: float = 4.0375
+    hop_seconds: float = 2.01875
+    overlap_fraction: float = 0.50
+    aggregation_method: str
+    aggregation_version: str = "v1.0"
+    file_level_synthetic_probability: float = Field(..., ge=0.0, le=1.0)
+    file_level_real_probability: float = Field(..., ge=0.0, le=1.0)
+    file_level_cm_score: float
+    suspicious_segments: List[SuspiciousSegmentDTO] = Field(default_factory=list)
+    windows_persisted: Optional[List[WindowTelemetryDTO]] = None
+
+
 class DetectionResultDTO(BaseModel):
     """Data Transfer Object returned by the Detection Service Interface."""
     engine_type: str

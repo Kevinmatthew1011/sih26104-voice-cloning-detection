@@ -67,3 +67,15 @@ class AudioValidator:
         
         return content, content_type, file_size
 
+    @staticmethod
+    def validate_audio_duration(duration_seconds: Optional[float]) -> None:
+        """
+        Validates that audio duration does not exceed MAX_AUDIO_DURATION_SECONDS.
+        Raises HTTP 400 Bad Request if duration limit is exceeded.
+        """
+        if duration_seconds is not None and duration_seconds > settings.MAX_AUDIO_DURATION_SECONDS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Audio duration ({duration_seconds:.1f}s) exceeds maximum allowed limit ({settings.MAX_AUDIO_DURATION_SECONDS:.1f}s).",
+            )
+

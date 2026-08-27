@@ -277,11 +277,65 @@ export default function DetectionDetailPage() {
                     {formatModelDisplayName(res?.model_version, res?.engine_type)}
                   </span>
                 </div>
+                {res?.metadata_json?.multi_window?.analysis_mode === 'multi_window' && (
+                  <>
+                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                      <span className="text-slate-400">Analysis Mode:</span>
+                      <span className="text-cyan-300 font-semibold">Multi-window AASIST</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                      <span className="text-slate-400">Windows Analyzed:</span>
+                      <span className="text-slate-200">{res.metadata_json.multi_window.window_count} (4.04s window, ~1.01s hop)</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-slate-800/60">
+                      <span className="text-slate-400">Aggregation:</span>
+                      <span className="text-slate-300">Maximum synthetic probability (max_v1)</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">Analysis Latency:</span>
                   <span className="text-slate-200">{res?.processing_time_ms} ms</span>
                 </div>
               </div>
+
+              {/* Multi-Window Suspicious Activity Box */}
+              {res?.metadata_json?.multi_window?.analysis_mode === 'multi_window' && (
+                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wider">
+                      Approximate Suspicious Model Activity
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      {(res.metadata_json.multi_window.suspicious_segments?.length || 0)} segment(s)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-mono leading-relaxed">
+                    Approximate suspicious model activity localized within temporal windows. Not an exact AI timestamp boundary.
+                  </p>
+                  {res.metadata_json.multi_window.suspicious_segments && res.metadata_json.multi_window.suspicious_segments.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      {res.metadata_json.multi_window.suspicious_segments.map((seg: any, sIdx: number) => (
+                        <div
+                          key={sIdx}
+                          className="flex items-center justify-between p-2 rounded-lg bg-red-950/30 border border-red-500/30 text-xs font-mono text-slate-200"
+                        >
+                          <span className="text-red-400 font-semibold">
+                            approx. {seg.start_seconds.toFixed(1)}s – {seg.end_seconds.toFixed(1)}s
+                          </span>
+                          <span className="text-rose-300">
+                            P(synth): {(seg.peak_synthetic_probability * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-lg bg-slate-950/60 border border-slate-800 text-[11px] font-mono text-emerald-400">
+                      No suspicious segments localized across windows.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Countermeasure & Action Plan */}
@@ -543,6 +597,28 @@ export default function DetectionDetailPage() {
                   <span className="text-slate-400">P(synthetic):</span>
                   <span className="text-rose-400 font-bold">{evidenceReport?.model_evidence?.synthetic_probability !== null && evidenceReport?.model_evidence?.synthetic_probability !== undefined ? evidenceReport.model_evidence.synthetic_probability.toFixed(4) : (res?.prediction === 'synthetic' ? res.confidence.toFixed(4) : (1 - (res?.confidence || 0)).toFixed(4))}</span>
                 </div>
+                {evidenceReport?.model_evidence?.analysis_mode === 'multi_window' && (
+                  <>
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-400">Analysis Mode:</span>
+                      <span className="text-cyan-300 font-semibold">Multi-window AASIST</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-400">Windows Analyzed:</span>
+                      <span className="text-slate-200">
+                        {evidenceReport.model_evidence.window_count} (
+                        {evidenceReport.model_evidence.window_length_seconds?.toFixed(2)}s window, ~
+                        {evidenceReport.model_evidence.hop_seconds?.toFixed(2)}s hop)
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-400">Aggregation Strategy:</span>
+                      <span className="text-slate-300">
+                        {evidenceReport.model_evidence.aggregation_method || 'max_v1'} ({evidenceReport.model_evidence.aggregation_version || 'v1.0'})
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between py-1">
                   <span className="text-slate-400">Latency:</span>
                   <span>{res?.processing_time_ms} ms</span>
