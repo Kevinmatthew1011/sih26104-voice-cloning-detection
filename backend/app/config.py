@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     # Default to local SQLite fallback if PostgreSQL is not configured, or use standard PostgreSQL connection
     DATABASE_URL: str = "sqlite+aiosqlite:///./voice_cloning.db"
     
-    # ML Detection Service
-    DETECTION_ENGINE: str = "mock"  # "mock" | "custom_ml"
+    # ML Detection Service ("mock" | "baseline" | "aasist")
+    DETECTION_ENGINE: str = "mock"
     MOCK_MODEL_VERSION: str = "mock-v1"
     
     # Audio Upload Constraints
