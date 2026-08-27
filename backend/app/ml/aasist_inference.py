@@ -387,11 +387,17 @@ class AASISTInferenceEngine:
             audio_path = Path(audio_source)
             if not audio_path.exists():
                 raise FileNotFoundError(f"Audio file '{audio_path}' does not exist.")
-            wav, sr = sf.read(str(audio_path), dtype="float32")
+            try:
+                wav, sr = sf.read(str(audio_path), dtype="float32")
+            except Exception:
+                wav, sr = librosa.load(str(audio_path), sr=None, mono=False)
         elif isinstance(audio_source, bytes):
             if len(audio_source) == 0:
                 raise ValueError("Empty audio bytes provided.")
-            wav, sr = sf.read(io.BytesIO(audio_source), dtype="float32")
+            try:
+                wav, sr = sf.read(io.BytesIO(audio_source), dtype="float32")
+            except Exception:
+                wav, sr = librosa.load(io.BytesIO(audio_source), sr=None, mono=False)
         elif isinstance(audio_source, np.ndarray):
             wav = audio_source.astype(np.float32)
             sr = TARGET_SAMPLE_RATE

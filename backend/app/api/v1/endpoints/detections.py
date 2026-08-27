@@ -229,6 +229,20 @@ async def create_detection(
         await db.commit()
         raise
 
+    except (ValueError, RuntimeError) as e:
+        # Atomic failure cleanup: remove newly stored audio file on failure
+        if saved_path and saved_path.exists():
+            try:
+                saved_path.unlink(missing_ok=True)
+            except Exception as clean_err:
+                logger.warning(f"Failed to clean up orphan audio file {saved_path}: {clean_err}")
+        case.status = "FAILED"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Audio decoding or analysis failed: {str(e)}"
+        )
+
     except Exception as e:
         # Atomic failure cleanup
         if saved_path and saved_path.exists():

@@ -64,6 +64,55 @@ class TestUploadHardening:
         assert resp.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         assert "File size exceeds maximum permitted limit" in resp.json()["detail"]
 
+    async def test_fake_webm_rejected_with_400(self, client: AsyncClient):
+        fake_webm = b"This is a fake webm payload without EBML or Matroska container headers."
+        files = {"file": ("mic_sample_fake.webm", fake_webm, "audio/webm")}
+        resp = await client.post("/api/v1/detections", files=files)
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Corrupt or invalid container header" in resp.json()["detail"]
+
+    async def test_valid_browser_webm_header_accepted(self, client: AsyncClient):
+        # Plausible EBML header with webm DocType
+        ebml_header = b"\x1a\x45\xdf\xa3\x9f\x42\x86\x81\x01\x42\xf7\x81\x01\x42\xf2\x81\x04\x42\xf3\x81\x08\x42\x82\x84webm\x42\x87\x81\x04\x42\x85\x81\x02" + b"\x00" * 200
+        files = {"file": ("mic_sample_recording.webm", ebml_header, "audio/webm")}
+        resp = await client.post("/api/v1/detections", files=files)
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.json()["id"] is not None
+
+    async def test_valid_ogg_recording_accepted(self, client: AsyncClient):
+        # Generate valid Ogg Vorbis/Opus
+        t = np.linspace(0, 1.0, 16000, endpoint=False, dtype=np.float32)
+        waveform = 0.5 * np.sin(2 * np.pi * 440 * t)
+        bio = io.BytesIO()
+        sf.write(bio, waveform, 16000, format="OGG")
+        ogg_bytes = bio.getvalue()
+
+        files = {"file": ("mic_sample.ogg", ogg_bytes, "audio/ogg")}
+        resp = await client.post("/api/v1/detections", files=files)
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.json()["id"] is not None
+
+    async def test_ogg_disguised_as_webm_rejected_with_400(self, client: AsyncClient):
+        # Valid Ogg bytes named with .webm extension must be rejected
+        t = np.linspace(0, 1.0, 16000, endpoint=False, dtype=np.float32)
+        waveform = 0.5 * np.sin(2 * np.pi * 440 * t)
+        bio = io.BytesIO()
+        sf.write(bio, waveform, 16000, format="OGG")
+        ogg_bytes = bio.getvalue()
+
+        files = {"file": ("mic_sample_mismatch.webm", ogg_bytes, "audio/webm")}
+        resp = await client.post("/api/v1/detections", files=files)
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Corrupt or invalid container header" in resp.json()["detail"]
+
+    async def test_webm_disguised_as_ogg_rejected_with_400(self, client: AsyncClient):
+        # WebM EBML bytes named with .ogg extension must be rejected
+        ebml_header = b"\x1a\x45\xdf\xa3\x9f\x42\x86\x81\x01\x42\xf7\x81\x01" + b"\x00" * 100
+        files = {"file": ("mic_sample_mismatch.ogg", ebml_header, "audio/ogg")}
+        resp = await client.post("/api/v1/detections", files=files)
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Corrupt or invalid container header" in resp.json()["detail"]
+
 
 @pytest.mark.asyncio
 class TestRateLimiter:

@@ -109,7 +109,33 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
-      const mediaRecorder = new MediaRecorder(stream);
+      let selectedMimeType = '';
+      let chosenExtension = '.webm';
+
+      if (typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          selectedMimeType = 'audio/webm;codecs=opus';
+          chosenExtension = '.webm';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          selectedMimeType = 'audio/webm';
+          chosenExtension = '.webm';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          selectedMimeType = 'audio/ogg;codecs=opus';
+          chosenExtension = '.ogg';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          selectedMimeType = 'audio/ogg';
+          chosenExtension = '.ogg';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          selectedMimeType = 'audio/mp4';
+          chosenExtension = '.m4a';
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          selectedMimeType = 'audio/wav';
+          chosenExtension = '.wav';
+        }
+      }
+
+      const options = selectedMimeType ? { mimeType: selectedMimeType } : undefined;
+      const mediaRecorder = options ? new MediaRecorder(stream, options) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
@@ -119,11 +145,23 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const actualMime = mediaRecorder.mimeType || selectedMimeType || 'audio/webm';
+        let ext = chosenExtension;
+        if (actualMime.includes('ogg')) {
+          ext = '.ogg';
+        } else if (actualMime.includes('webm')) {
+          ext = '.webm';
+        } else if (actualMime.includes('mp4') || actualMime.includes('aac')) {
+          ext = '.m4a';
+        } else if (actualMime.includes('wav')) {
+          ext = '.wav';
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
         const recordedFile = new File(
           [audioBlob],
-          `mic_sample_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webm`,
-          { type: 'audio/webm' }
+          `mic_sample_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}${ext}`,
+          { type: actualMime }
         );
         validateAndSetFile(recordedFile);
         stream.getTracks().forEach((track) => track.stop());

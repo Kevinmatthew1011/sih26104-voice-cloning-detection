@@ -93,7 +93,7 @@ class AudioValidator:
             # OggS
             valid = content[:4] == b"OggS"
         elif ext == ".webm":
-            # EBML signature (\x1a\x45\xdf\xa3)
+            # WebM / Matroska EBML Document ID (\x1a\x45\xdf\xa3) at offset 0
             valid = content[:4] == b"\x1a\x45\xdf\xa3"
         elif ext == ".mp3":
             # ID3 tag or MPEG audio sync frame (0xFFE0 mask)
