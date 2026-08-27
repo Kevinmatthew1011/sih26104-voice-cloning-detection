@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     AASIST_MULTIWINDOW_BATCH_SIZE: int = 16
     AASIST_DEFAULT_AGGREGATION: str = "max_v1"
 
+    # Rate Limiting & Concurrency (Security Hardening)
+    RATE_LIMIT_ENABLED: bool = False
+    DETECTION_RATE_LIMIT_PER_MINUTE: int = 10
+    DETECTION_RATE_LIMIT_BURST: int = 3
+    REPORT_RATE_LIMIT_PER_MINUTE: int = 30
+    HISTORY_RATE_LIMIT_PER_MINUTE: int = 60
+    MAX_CONCURRENT_INFERENCE_JOBS: int = 1
+    ADMISSION_TIMEOUT_SECONDS: float = 5.0
+
     # Audio Upload Constraints
     UPLOAD_DIR: Path = Path(__file__).resolve().parent.parent / "uploads"
     MAX_FILE_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB
@@ -55,7 +64,6 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        "*"
     ]
 
     model_config = SettingsConfigDict(

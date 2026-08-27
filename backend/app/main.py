@@ -1,9 +1,14 @@
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
 from app.api.v1.router import api_router
+from app.core.security_headers import SecurityHeadersMiddleware
+
+logger = logging.getLogger("app.security")
 
 
 @asynccontextmanager
@@ -29,6 +34,9 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# Security headers middleware (nosniff, DENY, referrer-policy)
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CORS middleware for Next.js frontend communication
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +45,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled server error on path {request.url.path}: {exc}")
+    if getattr(settings, "DEBUG", True):
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": f"Internal server error: {str(exc)}"},
+        )
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An internal error occurred during audio processing. Incident reference logged."},
+    )
+
 
 # Mount API v1 routes
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)

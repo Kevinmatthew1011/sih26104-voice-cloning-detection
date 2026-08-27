@@ -67,13 +67,16 @@ class AASISTDetectionService(BaseDetectionService):
                 ),
             )
 
+        from app.core.admission import aasist_admission_controller, InferenceAdmissionBusyError
+
         try:
-            inference_result = self.engine.predict_audio(
-                audio_source=audio_path,
-                filename=filename,
-                file_size_bytes=file_size_bytes,
-                duration_seconds=duration_seconds,
-            )
+            async with aasist_admission_controller.acquire_slot():
+                inference_result = self.engine.predict_audio(
+                    audio_source=audio_path,
+                    filename=filename,
+                    file_size_bytes=file_size_bytes,
+                    duration_seconds=duration_seconds,
+                )
 
             prediction_str = inference_result["prediction"]
             risk_level_str = inference_result["risk_level"]
@@ -94,6 +97,12 @@ class AASISTDetectionService(BaseDetectionService):
                 quality_flags=inference_result.get("quality_flags", []),
                 audio_quality=inference_result.get("audio_quality"),
             )
+        except InferenceAdmissionBusyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=e.message,
+                headers={"Retry-After": str(e.retry_after)},
+            ) from e
         except HTTPException:
             raise
         except ValueError as e:

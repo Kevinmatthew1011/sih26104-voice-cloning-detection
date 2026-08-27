@@ -1,4 +1,7 @@
+import logging
 from typing import Optional
+from uuid import UUID
+from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +27,9 @@ from app.services.storage import AudioStorageService
 from app.services.detection.factory import get_detection_service
 from app.services.decision_engine import SecurityDecisionEngine
 from app.services.report_service import AuditReportBuilder
+from app.core.rate_limiter import rate_limit_detection, rate_limit_report
+
+logger = logging.getLogger("app.detections")
 
 
 def build_detection_result_response(result: DetectionResult) -> DetectionResultResponse:
@@ -92,6 +98,7 @@ router = APIRouter()
     "",
     response_model=DetectionResultResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit_detection)],
     summary="Upload audio and run voice cloning detection",
 )
 async def create_detection(
@@ -100,18 +107,20 @@ async def create_detection(
 ):
     """
     Core detection endpoint:
-    1. Validates audio format, size, and integrity.
+    1. Validates audio format, streamed size limits, container signatures, and decodability.
     2. Extracts acoustic metadata (SHA-256 fingerprint, sample rate, channels, duration).
     3. Persists the audio file and creates a detection case.
-    4. Executes the Detection Service (Mock or Production Model).
+    4. Executes the Detection Service (gated by process-local admission controller).
     5. Persists the forensic detection result.
     6. Returns the structured detection result.
     """
-    # 1. Validate filename and content
+    # 1. Validate filename extension and streamed content
     filename = file.filename or "unknown_audio.wav"
-    AudioValidator.validate_filename_extension(filename)
+    ext = AudioValidator.validate_filename_extension(filename)
     
     content, mime_type, file_size = await AudioValidator.validate_file_content(file)
+    AudioValidator.validate_format_plausibility(content, ext)
+    AudioValidator.probe_audio_decodability(content, ext)
 
     # 2. Extract acoustic metadata and compute SHA-256 integrity fingerprint
     metadata = AudioMetadataService.extract_metadata(content)
@@ -120,7 +129,7 @@ async def create_detection(
     # 3. Initialize Detection Case record
     case = DetectionCase(
         filename=filename,
-        storage_path="",  # Temporary placeholder until saved
+        storage_path="",  # Placeholder until stored
         file_hash=metadata.file_hash,
         file_size_bytes=file_size,
         mime_type=mime_type,
@@ -132,12 +141,14 @@ async def create_detection(
     db.add(case)
     await db.flush()  # Generate case.id
 
+    saved_path: Optional[Path] = None
+
     try:
         # 4. Store the audio file securely
         saved_path = AudioStorageService.save_audio(case.id, filename, content)
         case.storage_path = str(saved_path)
 
-        # 5. Invoke ML Detection Service
+        # 5. Invoke ML Detection Service (internally gated by Admission Controller)
         detection_service = get_detection_service()
         dto = await detection_service.detect(
             audio_path=saved_path,
@@ -200,15 +211,38 @@ async def create_detection(
         await db.commit()
         await db.refresh(result)
 
+        logger.info(
+            f"event=detection_completed case_id={case.id} action={decision.action.value} "
+            f"reliability={analysis_rel} latency_ms={result.processing_time_ms}"
+        )
+
         return build_detection_result_response(result)
 
-    except Exception as e:
+    except HTTPException:
+        # Atomic failure cleanup: remove newly stored audio file on failure
+        if saved_path and saved_path.exists():
+            try:
+                saved_path.unlink(missing_ok=True)
+            except Exception as clean_err:
+                logger.warning(f"Failed to clean up orphan audio file {saved_path}: {clean_err}")
         case.status = "FAILED"
         await db.commit()
+        raise
+
+    except Exception as e:
+        # Atomic failure cleanup
+        if saved_path and saved_path.exists():
+            try:
+                saved_path.unlink(missing_ok=True)
+            except Exception as clean_err:
+                logger.warning(f"Failed to clean up orphan audio file {saved_path}: {clean_err}")
+        case.status = "FAILED"
+        await db.commit()
+        logger.error(f"event=detection_failed case_id={case.id} error={e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Detection processing failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.get(
@@ -289,18 +323,18 @@ async def list_detections(
     summary="Get complete forensic details for a detection case",
 )
 async def get_detection(
-    case_id: str,
+    case_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieve full details of a specific detection case and result."""
-    # First search by case_id, fallback to searching by result_id
-    query = select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == case_id)
+    case_str = str(case_id)
+    query = select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == case_str)
     res = await db.execute(query)
     case = res.scalar_one_or_none()
 
     if not case:
         # Check if caller passed a result_id
-        res_query = select(DetectionResult).where(DetectionResult.id == case_id)
+        res_query = select(DetectionResult).where(DetectionResult.id == case_str)
         res_obj = (await db.execute(res_query)).scalar_one_or_none()
         if res_obj:
             case = (await db.execute(
@@ -310,7 +344,7 @@ async def get_detection(
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Detection case '{case_id}' not found."
+            detail=f"Detection case '{case_str}' not found."
         )
 
     result_dto = build_detection_result_response(case.result) if case.result else None
@@ -337,18 +371,19 @@ async def get_detection(
     summary="Stream stored audio file for browser playback",
 )
 async def stream_audio(
-    case_id: str,
+    case_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """Serve the original uploaded audio file for frontend playback."""
-    query = select(DetectionCase).where(DetectionCase.id == case_id)
+    case_str = str(case_id)
+    query = select(DetectionCase).where(DetectionCase.id == case_str)
     res = await db.execute(query)
     case = res.scalar_one_or_none()
 
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Detection case '{case_id}' not found."
+            detail=f"Detection case '{case_str}' not found."
         )
 
     audio_path = AudioStorageService.get_audio_path(case.storage_path)
@@ -362,23 +397,25 @@ async def stream_audio(
 @router.get(
     "/{case_id}/report",
     response_model=DetectionEvidenceReportResponse,
+    dependencies=[Depends(rate_limit_report)],
     summary="Get structured, deterministic audit evidence report for a detection case",
 )
 async def get_detection_report(
-    case_id: str,
+    case_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Generate a deterministic machine-readable audit evidence report
     from persisted DetectionCase and DetectionResult records.
     """
-    query = select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == case_id)
+    case_str = str(case_id)
+    query = select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == case_str)
     res = await db.execute(query)
     case = res.scalar_one_or_none()
 
     if not case:
         # Check if caller passed a result_id
-        res_query = select(DetectionResult).where(DetectionResult.id == case_id)
+        res_query = select(DetectionResult).where(DetectionResult.id == case_str)
         res_obj = (await db.execute(res_query)).scalar_one_or_none()
         if res_obj:
             case = (await db.execute(
@@ -388,7 +425,7 @@ async def get_detection_report(
     if not case:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Detection case '{case_id}' not found for report generation."
+            detail=f"Detection case '{case_str}' not found for report generation."
         )
 
     return AuditReportBuilder.build_report(case)

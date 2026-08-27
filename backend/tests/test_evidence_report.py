@@ -186,7 +186,9 @@ def test_report_builder_is_deterministic_and_independent_of_runtime():
 @pytest.mark.asyncio
 async def test_report_api_404_for_missing_case(client: AsyncClient):
     """Verify GET /api/v1/detections/{id}/report returns 404 for unknown IDs."""
-    resp = await client.get("/api/v1/detections/non-existent-case-uuid/report")
+    import uuid
+    missing_id = str(uuid.uuid4())
+    resp = await client.get(f"/api/v1/detections/{missing_id}/report")
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"].lower()
 
