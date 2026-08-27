@@ -82,3 +82,54 @@ export interface HealthStatus {
     engine_info: Record<string, any>;
   };
 }
+
+export interface ReportCaseMetadata {
+  case_id: string;
+  result_id?: string | null;
+  filename: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ReportAudioEvidence {
+  file_size_bytes: number;
+  mime_type: string;
+  duration_seconds?: number | null;
+  sample_rate_hz?: number | null;
+  channels?: number | null;
+  file_sha256?: string | null;
+}
+
+export interface ReportModelEvidence {
+  engine_type: string;
+  model_version: string;
+  architecture?: string | null;
+  checkpoint_sha256?: string | null;
+  prediction: PredictionType;
+  confidence: number;
+  synthetic_probability?: number | null;
+  real_probability?: number | null;
+  cm_score?: number | null;
+  analyzed_duration_seconds?: number | null;
+  processing_latency_ms: number;
+  attack_type?: string | null;
+  explanation?: string | null;
+  scoring_note?: string | null;
+}
+
+export interface ReportAuditProvenance {
+  provenance: string;
+  decision_evaluated: boolean;
+  device_used?: string | null;
+}
+
+export interface DetectionEvidenceReport {
+  report_version: string;
+  report_type: string;
+  case: ReportCaseMetadata;
+  audio_evidence: ReportAudioEvidence;
+  model_evidence?: ReportModelEvidence | null;
+  security_decision?: SecurityDecision | null;
+  audit: ReportAuditProvenance;
+  limitations: string[];
+}

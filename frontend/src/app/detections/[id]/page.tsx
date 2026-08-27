@@ -11,9 +11,16 @@ import {
   Activity,
   Lock,
   AlertOctagon,
+  FileText,
+  Download,
+  Copy,
+  Check,
+  Cpu,
+  Fingerprint,
+  Info,
 } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { DetectionCaseDetail } from '../../../lib/types';
+import { DetectionCaseDetail, DetectionEvidenceReport } from '../../../lib/types';
 import { ThreatBadge } from '../../../components/ThreatBadge';
 import { ConfidenceGauge } from '../../../components/ConfidenceGauge';
 import { AudioWaveformVisualizer } from '../../../components/AudioWaveformVisualizer';
@@ -33,9 +40,11 @@ export default function DetectionDetailPage() {
       : '';
 
   const [caseDetail, setCaseDetail] = useState<DetectionCaseDetail | null>(null);
+  const [evidenceReport, setEvidenceReport] = useState<DetectionEvidenceReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'raw_json'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'telemetry' | 'report' | 'raw_json'>('overview');
+  const [copiedReport, setCopiedReport] = useState(false);
 
   useEffect(() => {
     if (!id || id === '[id]' || id === '%5Bid%5D') {
@@ -48,8 +57,12 @@ export default function DetectionDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await api.getDetection(id);
-        setCaseDetail(data);
+        const [caseData, reportData] = await Promise.all([
+          api.getDetection(id),
+          api.getDetectionReport(id).catch(() => null),
+        ]);
+        setCaseDetail(caseData);
+        setEvidenceReport(reportData);
       } catch (err: any) {
         setError(err.message || 'Failed to load detection details.');
       } finally {
@@ -58,6 +71,27 @@ export default function DetectionDetailPage() {
     };
     fetchDetail();
   }, [id]);
+
+  const handleCopyReportJson = () => {
+    if (evidenceReport) {
+      navigator.clipboard.writeText(JSON.stringify(evidenceReport, null, 2));
+      setCopiedReport(true);
+      setTimeout(() => setCopiedReport(false), 2000);
+    }
+  };
+
+  const handleDownloadReportJson = () => {
+    if (!evidenceReport) return;
+    const blob = new Blob([JSON.stringify(evidenceReport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `detection_evidence_report_${id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return (
@@ -184,6 +218,17 @@ export default function DetectionDetailPage() {
           Acoustic Telemetry
         </button>
         <button
+          onClick={() => setActiveTab('report')}
+          className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
+            activeTab === 'report'
+              ? 'bg-slate-800 text-cyan-400 border border-slate-700'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Evidence & Audit Report</span>
+        </button>
+        <button
           onClick={() => setActiveTab('raw_json')}
           className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all ${
             activeTab === 'raw_json'
@@ -191,7 +236,7 @@ export default function DetectionDetailPage() {
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          Contract JSON Payload
+          Contract JSON
         </button>
       </div>
 
@@ -364,7 +409,195 @@ export default function DetectionDetailPage() {
         </div>
       )}
 
-      {/* Tab 3: Contract JSON Payload */}
+      {/* Tab 3: Evidence & Audit Report */}
+      {activeTab === 'report' && (
+        <div className="space-y-6">
+          {/* Report Action Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl border border-slate-800 bg-slate-950/70">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-950/50 border border-cyan-500/30 text-cyan-400">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                  <span>Detection Evidence & Audit Summary</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 border border-cyan-800 text-cyan-400">
+                    {evidenceReport?.report_version || 'v1.0'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  Machine-generated security analysis report
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCopyReportJson}
+                disabled={!evidenceReport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-mono transition-all disabled:opacity-50"
+              >
+                {copiedReport ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                <span>{copiedReport ? 'Copied JSON' : 'Copy JSON'}</span>
+              </button>
+              <button
+                onClick={handleDownloadReportJson}
+                disabled={!evidenceReport}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-semibold text-xs font-mono transition-all disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Report</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Identification & Provenance */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider pb-2 border-b border-slate-800">
+                <Cpu className="w-4 h-4 text-cyan-400" />
+                <span>Case Identification & Provenance</span>
+              </div>
+              <div className="space-y-2 text-xs font-mono text-slate-300">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Case ID:</span>
+                  <span className="text-slate-200 truncate max-w-[200px]">{evidenceReport?.case?.case_id || caseDetail.id}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Result ID:</span>
+                  <span className="text-slate-200 truncate max-w-[200px]">{evidenceReport?.case?.result_id || res?.id || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="text-emerald-400 font-semibold">{evidenceReport?.case?.status || caseDetail.status}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Audit Provenance:</span>
+                  <span className={`font-semibold ${evidenceReport?.audit?.provenance === 'policy_evaluated' ? 'text-cyan-400' : 'text-amber-400'}`}>
+                    {evidenceReport?.audit?.provenance || (res?.decision ? 'policy_evaluated' : 'legacy_unprocessed')}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Inference Device:</span>
+                  <span className="text-slate-300">{evidenceReport?.audit?.device_used || 'cuda:0'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Audio Evidence */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider pb-2 border-b border-slate-800">
+                <Fingerprint className="w-4 h-4 text-cyan-400" />
+                <span>Audio Evidence & Integrity</span>
+              </div>
+              <div className="space-y-2 text-xs font-mono text-slate-300">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">File Size:</span>
+                  <span>{((evidenceReport?.audio_evidence?.file_size_bytes || caseDetail.file_size_bytes) / 1024).toFixed(1)} KB</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">MIME Format:</span>
+                  <span>{evidenceReport?.audio_evidence?.mime_type || caseDetail.mime_type}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Duration:</span>
+                  <span>{(evidenceReport?.audio_evidence?.duration_seconds || caseDetail.duration_seconds || 0).toFixed(2)}s</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Sample Rate:</span>
+                  <span>{evidenceReport?.audio_evidence?.sample_rate_hz || caseDetail.sample_rate || 16000} Hz</span>
+                </div>
+                <div className="py-1">
+                  <span className="text-slate-400 block mb-1">Audio File SHA-256:</span>
+                  <span className="text-[11px] text-cyan-400 break-all bg-slate-900/80 p-1.5 rounded-lg border border-slate-800/80 block">
+                    {evidenceReport?.audio_evidence?.file_sha256 || caseDetail.file_hash || 'SHA-256 unavailable'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Model & Acoustic Telemetry */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider pb-2 border-b border-slate-800">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                <span>Model Evidence & Forensics</span>
+              </div>
+              <div className="space-y-2 text-xs font-mono text-slate-300">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Engine / Model:</span>
+                  <span className="text-cyan-400">{formatModelDisplayName(res?.model_version, res?.engine_type)}</span>
+                </div>
+                {evidenceReport?.model_evidence?.checkpoint_sha256 && (
+                  <div className="py-1">
+                    <span className="text-slate-400 block mb-1">Checkpoint SHA-256:</span>
+                    <span className="text-[10px] text-slate-300 break-all bg-slate-900/80 p-1.5 rounded-lg border border-slate-800/80 block">
+                      {evidenceReport.model_evidence.checkpoint_sha256}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">CM Score:</span>
+                  <span className="text-slate-200 font-bold">{evidenceReport?.model_evidence?.cm_score !== null && evidenceReport?.model_evidence?.cm_score !== undefined ? evidenceReport.model_evidence.cm_score.toFixed(4) : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">P(synthetic):</span>
+                  <span className="text-rose-400 font-bold">{evidenceReport?.model_evidence?.synthetic_probability !== null && evidenceReport?.model_evidence?.synthetic_probability !== undefined ? evidenceReport.model_evidence.synthetic_probability.toFixed(4) : (res?.prediction === 'synthetic' ? res.confidence.toFixed(4) : (1 - (res?.confidence || 0)).toFixed(4))}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Latency:</span>
+                  <span>{res?.processing_time_ms} ms</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Security Decision Directive */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
+                  <Lock className="w-4 h-4 text-cyan-400" />
+                  <span>Security Decision</span>
+                </div>
+                {res?.action && <ThreatBadge action={res.action} size="sm" />}
+              </div>
+              <div className="space-y-2 text-xs font-mono text-slate-300">
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Action:</span>
+                  <span className="font-bold text-slate-200">{evidenceReport?.security_decision?.action || res?.action || 'N/A (Legacy)'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Policy Version:</span>
+                  <span>{evidenceReport?.security_decision?.policy_version || 'v1.0'}</span>
+                </div>
+                <div className="py-1">
+                  <span className="text-slate-400 block mb-1">Directive Message:</span>
+                  <span className="p-2 rounded-lg bg-slate-900/90 border border-slate-800 block text-slate-200">
+                    {evidenceReport?.security_decision?.decision_message || res?.decision_message || 'No decision metadata available for this historical record.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Limitations Box */}
+          <div className="p-4 rounded-2xl border border-slate-800/80 bg-slate-950/40 space-y-2">
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-mono uppercase tracking-wider">
+              <Info className="w-4 h-4 text-cyan-400" />
+              <span>Report Disclaimers & Limitations</span>
+            </div>
+            <ul className="text-xs text-slate-400 font-mono space-y-1 list-disc list-inside">
+              {(evidenceReport?.limitations || [
+                "This report is a machine-generated automated security assessment, not a legal guarantee.",
+                "Probability scores represent model output estimates (uncalibrated) and do not reflect definitive biometric identification.",
+                "Performance may vary under acoustic noise, lossy codecs, telephony bandwidth limits, and unseen attack vectors."
+              ]).map((limitation, idx) => (
+                <li key={idx}>{limitation}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Contract JSON Payload */}
       {activeTab === 'raw_json' && (
         <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-6 space-y-3 font-mono text-xs">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">

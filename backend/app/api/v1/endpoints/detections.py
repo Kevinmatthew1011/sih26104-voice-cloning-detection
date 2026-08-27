@@ -17,11 +17,13 @@ from app.schemas.detection import (
     ActionEnum,
     SecurityDecisionDTO,
 )
+from app.schemas.report import DetectionEvidenceReportResponse
 from app.services.audio_validator import AudioValidator
 from app.services.audio_metadata import AudioMetadataService
 from app.services.storage import AudioStorageService
 from app.services.detection.factory import get_detection_service
 from app.services.decision_engine import SecurityDecisionEngine
+from app.services.report_service import AuditReportBuilder
 
 
 def build_detection_result_response(result: DetectionResult) -> DetectionResultResponse:
@@ -323,3 +325,38 @@ async def stream_audio(
         media_type=case.mime_type,
         filename=case.filename,
     )
+
+
+@router.get(
+    "/{case_id}/report",
+    response_model=DetectionEvidenceReportResponse,
+    summary="Get structured, deterministic audit evidence report for a detection case",
+)
+async def get_detection_report(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate a deterministic machine-readable audit evidence report
+    from persisted DetectionCase and DetectionResult records.
+    """
+    query = select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == case_id)
+    res = await db.execute(query)
+    case = res.scalar_one_or_none()
+
+    if not case:
+        # Check if caller passed a result_id
+        res_query = select(DetectionResult).where(DetectionResult.id == case_id)
+        res_obj = (await db.execute(res_query)).scalar_one_or_none()
+        if res_obj:
+            case = (await db.execute(
+                select(DetectionCase).options(selectinload(DetectionCase.result)).where(DetectionCase.id == res_obj.detection_case_id)
+            )).scalar_one_or_none()
+
+    if not case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Detection case '{case_id}' not found for report generation."
+        )
+
+    return AuditReportBuilder.build_report(case)

@@ -1,4 +1,4 @@
-import { DetectionResult, DetectionCaseDetail, DetectionListResponse, HealthStatus } from './types';
+import { DetectionResult, DetectionCaseDetail, DetectionListResponse, HealthStatus, DetectionEvidenceReport } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -109,6 +109,21 @@ class ApiClient {
       data.audio_url = `${this.baseUrl}${data.audio_url}`;
     }
     return data;
+  }
+
+  async getDetectionReport(id: string): Promise<DetectionEvidenceReport> {
+    const res = await fetch(`${this.baseUrl}/api/v1/detections/${id}/report`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(`Detection evidence report for '${id}' not found.`);
+      }
+      throw new Error(`Failed to fetch detection evidence report (HTTP ${res.status})`);
+    }
+
+    return await res.json();
   }
 }
 
