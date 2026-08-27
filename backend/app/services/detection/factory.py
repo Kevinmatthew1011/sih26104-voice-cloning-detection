@@ -3,6 +3,7 @@ from app.config import settings
 from app.services.detection.base import BaseDetectionService
 from app.services.detection.mock_service import MockDetectionService
 from app.services.detection.baseline_service import BaselineMLDetectionService
+from app.services.detection.aasist_service import AASISTDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ def get_detection_service() -> BaseDetectionService:
     Supported DETECTION_ENGINE values:
     - "mock": MockDetectionService (deterministic heuristic simulator)
     - "baseline": BaselineMLDetectionService (real scikit-learn MFCC baseline)
+    - "aasist": AASISTDetectionService (deep learning graph attention network)
     """
     global _detection_service_instance
     if _detection_service_instance is not None:
@@ -30,10 +32,13 @@ def get_detection_service() -> BaseDetectionService:
     elif engine_name == "baseline":
         logger.info("Initializing BaselineMLDetectionService (model_version: baseline-v1)")
         _detection_service_instance = BaselineMLDetectionService(model_version="baseline-v1")
+    elif engine_name == "aasist":
+        logger.info("Initializing AASISTDetectionService (model_version: aasist-v1)")
+        _detection_service_instance = AASISTDetectionService(model_version="aasist-v1")
     else:
         raise ValueError(
             f"Unsupported DETECTION_ENGINE '{engine_name}'. "
-            "Supported options are: 'mock', 'baseline'."
+            "Supported options are: 'mock', 'baseline', 'aasist'."
         )
 
     return _detection_service_instance

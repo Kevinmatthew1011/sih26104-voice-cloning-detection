@@ -82,6 +82,7 @@ data/
 *.npz
 ml_cache/
 .cache/
+ml_eval/**/results/*.csv
 
 # =========================
 # Database / local runtime

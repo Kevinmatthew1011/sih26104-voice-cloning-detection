@@ -17,6 +17,7 @@ import {
 import { api } from '../lib/api';
 import { DetectionCaseSummary, HealthStatus } from '../lib/types';
 import { RecentDetectionsTable } from '../components/RecentDetectionsTable';
+import { formatNavbarEngineLabel } from '@/lib/formatters';
 
 export default function DashboardPage() {
   const [recentCases, setRecentCases] = useState<DetectionCaseSummary[]>([]);
@@ -153,7 +154,7 @@ export default function DashboardPage() {
           </div>
           <p className="text-[11px] text-slate-400">
             {avgLatency !== null
-              ? `Active engine: ${health?.detection_engine || 'mock-v1'}`
+              ? `Active engine: ${formatNavbarEngineLabel(health?.detection_engine, health?.model_version)}`
               : 'No analyses yet'}
           </p>
         </div>

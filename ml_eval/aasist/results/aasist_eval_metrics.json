@@ -1,0 +1,159 @@
+{
+  "model_name": "AASIST",
+  "checkpoint_sha256": "51d2d9cf0738172f61e2a384ec50a54a55363240f67c971ed55a92435bc1a1c0",
+  "evaluation_protocol": "ASVspoof 2019 LA Full EVAL (71,237 samples)",
+  "hardware": {
+    "device": "cuda:0",
+    "device_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "pytorch_version": "2.13.0+cu130",
+    "cuda_version": "13.0",
+    "batch_size": 24,
+    "peak_vram_mb": 4406.52,
+    "inference_duration_seconds": 1905.9508,
+    "throughput_samples_per_sec": 37.38,
+    "avg_latency_ms_per_sample": 26.7551
+  },
+  "metrics": {
+    "total_samples": 71237,
+    "bonafide_samples": 7355,
+    "spoof_samples": 63882,
+    "accuracy": 0.951753,
+    "precision_synthetic": 0.999735,
+    "recall_synthetic": 0.946448,
+    "f1_score": 0.972362,
+    "roc_auc": 0.999282,
+    "eer": 0.008047,
+    "eer_threshold": -4.531697,
+    "confusion_matrix": {
+      "tn": 7339,
+      "fp": 16,
+      "fn": 3421,
+      "tp": 60461
+    },
+    "bonafide_fpr": 0.002175,
+    "synthetic_fnr": 0.053552
+  },
+  "grouped_generalization": {
+    "unseen_tts_a07_a16": {
+      "total": 49140,
+      "correct": 47151,
+      "recall": 0.959524
+    },
+    "unseen_vc_a17_a19": {
+      "total": 14742,
+      "correct": 13310,
+      "recall": 0.902863
+    },
+    "all_unseen_a07_a19": {
+      "total": 63882,
+      "correct": 60461,
+      "recall": 0.946448
+    }
+  },
+  "attack_breakdown": {
+    "A07": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4622,
+      "missed": 292,
+      "recall": 0.940578,
+      "recall_pct": 94.06
+    },
+    "A08": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4877,
+      "missed": 37,
+      "recall": 0.99247,
+      "recall_pct": 99.25
+    },
+    "A09": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4914,
+      "missed": 0,
+      "recall": 1.0,
+      "recall_pct": 100.0
+    },
+    "A10": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4092,
+      "missed": 822,
+      "recall": 0.832723,
+      "recall_pct": 83.27
+    },
+    "A11": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4912,
+      "missed": 2,
+      "recall": 0.999593,
+      "recall_pct": 99.96
+    },
+    "A12": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4385,
+      "missed": 529,
+      "recall": 0.892348,
+      "recall_pct": 89.23
+    },
+    "A13": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4914,
+      "missed": 0,
+      "recall": 1.0,
+      "recall_pct": 100.0
+    },
+    "A14": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4911,
+      "missed": 3,
+      "recall": 0.999389,
+      "recall_pct": 99.94
+    },
+    "A15": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4683,
+      "missed": 231,
+      "recall": 0.952991,
+      "recall_pct": 95.3
+    },
+    "A16": {
+      "category": "TTS/Hybrid",
+      "total": 4914,
+      "correct": 4841,
+      "missed": 73,
+      "recall": 0.985144,
+      "recall_pct": 98.51
+    },
+    "A17": {
+      "category": "VC",
+      "total": 4914,
+      "correct": 4551,
+      "missed": 363,
+      "recall": 0.926129,
+      "recall_pct": 92.61
+    },
+    "A18": {
+      "category": "VC",
+      "total": 4914,
+      "correct": 3924,
+      "missed": 990,
+      "recall": 0.798535,
+      "recall_pct": 79.85
+    },
+    "A19": {
+      "category": "VC",
+      "total": 4914,
+      "correct": 4835,
+      "missed": 79,
+      "recall": 0.983923,
+      "recall_pct": 98.39
+    }
+  }
+}
