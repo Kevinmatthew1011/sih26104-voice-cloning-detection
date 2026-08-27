@@ -39,13 +39,25 @@ def build_detection_result_response(result: DetectionResult) -> DetectionResultR
     decision_data = meta.get("decision")
     decision_dto: Optional[SecurityDecisionDTO] = None
     action_val: Optional[ActionEnum] = None
+    raw_ml_action: Optional[ActionEnum] = None
+    final_op_action: Optional[ActionEnum] = None
     decision_msg: Optional[str] = None
+    analysis_status = meta.get("analysis_status", "completed")
+    analysis_rel = meta.get("analysis_reliability")
+    q_flags = meta.get("quality_flags", [])
+    audio_qual = meta.get("audio_quality")
 
     if decision_data and isinstance(decision_data, dict):
         try:
             decision_dto = SecurityDecisionDTO(**decision_data)
             action_val = decision_dto.action
+            raw_ml_action = decision_dto.raw_ml_action
+            final_op_action = decision_dto.final_operational_action or decision_dto.action
             decision_msg = decision_dto.decision_message
+            if not analysis_rel and decision_dto.analysis_reliability:
+                analysis_rel = decision_dto.analysis_reliability
+            if not q_flags and decision_dto.quality_flags:
+                q_flags = decision_dto.quality_flags
         except Exception:
             decision_dto = None
 
@@ -63,6 +75,12 @@ def build_detection_result_response(result: DetectionResult) -> DetectionResultR
         spectral_artifacts=result.spectral_artifacts,
         metadata_json=result.metadata_json,
         action=action_val,
+        raw_ml_action=raw_ml_action,
+        final_operational_action=final_op_action,
+        analysis_status=analysis_status,
+        analysis_reliability=analysis_rel,
+        quality_flags=q_flags,
+        audio_quality=audio_qual,
         decision_message=decision_msg,
         decision=decision_dto,
     )
@@ -132,11 +150,17 @@ async def create_detection(
         # 6. Evaluate Security Decision & Prevention Policy
         synth_prob = None
         if dto.metadata_json and "synthetic_probability" in dto.metadata_json:
-            synth_prob = float(dto.metadata_json["synthetic_probability"])
+            synth_prob_val = dto.metadata_json["synthetic_probability"]
+            synth_prob = float(synth_prob_val) if synth_prob_val is not None else None
+        elif dto.prediction == PredictionEnum.UNKNOWN:
+            synth_prob = None
         elif dto.prediction == PredictionEnum.SYNTHETIC:
             synth_prob = float(dto.confidence)
         else:
             synth_prob = float(round(1.0 - dto.confidence, 4))
+
+        analysis_rel = dto.metadata_json.get("analysis_reliability", "reliable") if dto.metadata_json else "reliable"
+        q_flags = dto.metadata_json.get("quality_flags", []) if dto.metadata_json else []
 
         decision = SecurityDecisionEngine.evaluate(
             prediction=dto.prediction.value,
@@ -144,11 +168,18 @@ async def create_detection(
             risk_level=dto.risk_level.value,
             engine_type=dto.engine_type,
             extra_telemetry=dto.metadata_json,
+            analysis_reliability=analysis_rel,
+            quality_flags=q_flags,
         )
 
         meta_payload = dict(dto.metadata_json or {})
         meta_payload["decision"] = decision.model_dump()
         meta_payload["synthetic_probability"] = synth_prob
+        meta_payload["analysis_status"] = dto.metadata_json.get("analysis_status", "completed") if dto.metadata_json else "completed"
+        meta_payload["analysis_reliability"] = analysis_rel
+        meta_payload["quality_flags"] = q_flags
+        if dto.metadata_json and "audio_quality" in dto.metadata_json:
+            meta_payload["audio_quality"] = dto.metadata_json["audio_quality"]
 
         # 7. Persist Detection Result
         result = DetectionResult(

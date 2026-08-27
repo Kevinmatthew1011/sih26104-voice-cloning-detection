@@ -125,6 +125,9 @@ export default function DetectionDetailPage() {
   }
 
   const res = caseDetail.result;
+  const audioQual = res?.audio_quality || res?.metadata_json?.audio_quality;
+  const reliability = res?.analysis_reliability || res?.decision?.analysis_reliability || audioQual?.analysis_reliability;
+  const qualityFlags = res?.quality_flags || res?.decision?.quality_flags || audioQual?.quality_flags || [];
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -152,6 +155,8 @@ export default function DetectionDetailPage() {
             ? 'border-red-500/30 bg-gradient-to-b from-red-950/30 via-slate-950/80 to-slate-950'
             : res?.prediction === 'replay'
             ? 'border-amber-500/30 bg-gradient-to-b from-amber-950/30 via-slate-950/80 to-slate-950'
+            : res?.prediction === 'unknown'
+            ? 'border-slate-700 bg-gradient-to-b from-slate-900/60 via-slate-950/80 to-slate-950'
             : 'border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/80 to-slate-950'
         }`}
       >
@@ -163,10 +168,20 @@ export default function DetectionDetailPage() {
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {res && <ThreatBadge prediction={res.prediction} size="lg" />}
-              {res && <ThreatBadge riskLevel={res.risk_level} size="md" />}
+              {res && (
+                <ThreatBadge
+                  riskLevel={
+                    res.prediction === 'unknown' || res.raw_ml_action === 'NOT_EVALUATED' || res.analysis_status === 'inconclusive'
+                      ? 'not_assessed'
+                      : res.risk_level
+                  }
+                  size="md"
+                />
+              )}
               {res?.action && <ThreatBadge action={res.action} size="md" />}
+              {reliability && <ThreatBadge reliability={reliability} size="md" />}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
@@ -193,6 +208,35 @@ export default function DetectionDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Quality Degradation Advisory Callout */}
+        {reliability === 'degraded' && (
+          <div className="mt-6 p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs font-mono flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+            <div>
+              <span className="font-bold block uppercase tracking-wider text-amber-200">
+                Acoustic Quality Advisory: Degraded Channel ({qualityFlags.join(', ')})
+              </span>
+              <span className="mt-0.5 block leading-relaxed text-amber-300/90 text-[11px]">
+                Raw model score ({res?.raw_ml_action || res?.prediction}) is preserved in forensic telemetry, but final operational recommendation is VERIFY because acoustic channel degradation reduces automated classification reliability.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {reliability === 'insufficient_speech' && (
+          <div className="mt-6 p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-mono flex items-start gap-3">
+            <AlertOctagon className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+            <div>
+              <span className="font-bold block uppercase tracking-wider text-rose-200">
+                Inconclusive Assessment: Insufficient Active Speech
+              </span>
+              <span className="mt-0.5 block leading-relaxed text-rose-300/90 text-[11px]">
+                Voice authenticity could not be assessed due to absence of continuous active speech frames. Voice authorization is deferred and secondary identity verification is required.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -256,7 +300,7 @@ export default function DetectionDetailPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6 space-y-4">
               <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider">
                 <Activity className="w-4 h-4 text-cyan-400" />
-                <span>Model Analysis</span>
+                <span>Model Analysis & Multi-Window</span>
               </div>
 
               <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-300 leading-relaxed">
@@ -281,15 +325,23 @@ export default function DetectionDetailPage() {
                   <>
                     <div className="flex justify-between py-2 border-b border-slate-800/60">
                       <span className="text-slate-400">Analysis Mode:</span>
-                      <span className="text-cyan-300 font-semibold">Multi-window AASIST</span>
+                      <span className="text-cyan-300 font-semibold">Multi-window AASIST (75% Overlap)</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-800/60">
-                      <span className="text-slate-400">Windows Analyzed:</span>
-                      <span className="text-slate-200">{res.metadata_json.multi_window.window_count} (4.04s window, ~1.01s hop)</span>
+                      <span className="text-slate-400">Windows Evaluated:</span>
+                      <span className="text-slate-200">
+                        {res.metadata_json.multi_window.eligible_window_count ?? res.metadata_json.multi_window.window_count} active / {res.metadata_json.multi_window.window_count} total
+                      </span>
                     </div>
+                    {res.metadata_json.multi_window.excluded_low_energy_window_count > 0 && (
+                      <div className="flex justify-between py-2 border-b border-slate-800/60">
+                        <span className="text-slate-400">Excluded Silence Windows:</span>
+                        <span className="text-amber-400">{res.metadata_json.multi_window.excluded_low_energy_window_count} non-speech</span>
+                      </div>
+                    )}
                     <div className="flex justify-between py-2 border-b border-slate-800/60">
-                      <span className="text-slate-400">Aggregation:</span>
-                      <span className="text-slate-300">Maximum synthetic probability (max_v1)</span>
+                      <span className="text-slate-400">Aggregation Strategy:</span>
+                      <span className="text-slate-300">Conservative maximum (max_v1)</span>
                     </div>
                   </>
                 )}
@@ -350,7 +402,7 @@ export default function DetectionDetailPage() {
                 </span>
               </div>
 
-              {res?.action === 'BLOCK' || res?.risk_level === 'high' ? (
+              {res?.action === 'BLOCK' ? (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs flex items-start gap-3">
                     <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
@@ -376,14 +428,14 @@ export default function DetectionDetailPage() {
                     ))}
                   </ul>
                 </div>
-              ) : res?.action === 'VERIFY' || res?.risk_level === 'medium' ? (
+              ) : res?.action === 'VERIFY' ? (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-400 text-xs flex items-start gap-3">
                     <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold block uppercase tracking-wider">VERIFY: Step-Up Verification Required</span>
                       <span className="mt-0.5 block leading-relaxed">
-                        {res?.decision_message || res?.decision?.decision_message || "Suspicious voice characteristics detected. Perform additional identity verification."}
+                        {res?.decision_message || res?.decision?.decision_message || "Suspicious voice characteristics or degraded audio quality detected. Perform secondary verification."}
                       </span>
                     </div>
                   </div>
@@ -409,7 +461,7 @@ export default function DetectionDetailPage() {
                     <div>
                       <span className="font-bold block uppercase tracking-wider">ALLOW: Standard Authorization Permitted</span>
                       <span className="mt-0.5 block leading-relaxed">
-                        {res?.decision_message || res?.decision?.decision_message || "No strong synthetic voice indicators detected."}
+                        {res?.decision_message || res?.decision?.decision_message || "No strong synthetic voice indicators detected under nominal input-quality conditions."}
                       </span>
                     </div>
                   </div>
@@ -418,13 +470,56 @@ export default function DetectionDetailPage() {
                     {(res?.decision?.recommended_steps && res.decision.recommended_steps.length > 0
                       ? res.decision.recommended_steps
                       : [
-                          "No strong synthetic voice indicators detected. Continue according to standard authorization policy.",
+                          "No strong synthetic voice indicators detected under nominal input-quality conditions. Continue according to standard authorization policy.",
                           "Maintain standard transaction monitoring."
                         ]
                     ).map((step, idx) => (
                       <li key={idx}>{step}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Input Quality & Reliability Card */}
+              {audioQual && (
+                <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-2 text-xs font-mono">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Input Quality & Reliability</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      reliability === 'reliable' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                      reliability === 'degraded' ? 'bg-amber-950 text-amber-300 border border-amber-700' :
+                      'bg-rose-950 text-rose-300 border border-rose-800'
+                    }`}>
+                      {reliability}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
+                      <span className="text-slate-500 block">Bandwidth:</span>
+                      <span className="text-slate-200">{audioQual.native_sample_rate_hz} Hz ({audioQual.effective_bandwidth_class})</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
+                      <span className="text-slate-500 block">Active Speech:</span>
+                      <span className="text-slate-200">{(audioQual.active_speech_fraction * 100).toFixed(1)}% density</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
+                      <span className="text-slate-500 block">Clipping:</span>
+                      <span className="text-slate-200">{(audioQual.clipped_sample_fraction * 100).toFixed(2)}% samples</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
+                      <span className="text-slate-500 block">Signal RMS:</span>
+                      <span className="text-slate-200">{audioQual.rms_dbfs} dBFS</span>
+                    </div>
+                  </div>
+                  {qualityFlags.length > 0 && (
+                    <div className="pt-1 flex flex-wrap gap-1">
+                      {qualityFlags.map((flag: string, fIdx: number) => (
+                        <span key={fIdx} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-900 border border-amber-500/40 text-amber-300">
+                          {flag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -480,7 +575,7 @@ export default function DetectionDetailPage() {
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  Machine-generated security analysis report
+                  Machine-generated deterministic security analysis report
                 </p>
               </div>
             </div>
@@ -538,11 +633,11 @@ export default function DetectionDetailPage() {
               </div>
             </div>
 
-            {/* 2. Audio Evidence */}
+            {/* 2. Audio Evidence & Quality */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
               <div className="flex items-center gap-2 text-slate-300 font-mono text-xs uppercase tracking-wider pb-2 border-b border-slate-800">
                 <Fingerprint className="w-4 h-4 text-cyan-400" />
-                <span>Audio Evidence & Integrity</span>
+                <span>Audio Forensics & Signal Quality</span>
               </div>
               <div className="space-y-2 text-xs font-mono text-slate-300">
                 <div className="flex justify-between py-1">
@@ -561,6 +656,26 @@ export default function DetectionDetailPage() {
                   <span className="text-slate-400">Sample Rate:</span>
                   <span>{evidenceReport?.audio_evidence?.sample_rate_hz || caseDetail.sample_rate || 16000} Hz</span>
                 </div>
+                {evidenceReport?.audio_evidence?.analysis_reliability && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-400">Quality Reliability:</span>
+                    <span className={`font-bold ${
+                      evidenceReport.audio_evidence.analysis_reliability === 'reliable' ? 'text-emerald-400' :
+                      evidenceReport.audio_evidence.analysis_reliability === 'degraded' ? 'text-amber-400' :
+                      'text-rose-400'
+                    }`}>
+                      {evidenceReport.audio_evidence.analysis_reliability.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                {evidenceReport?.audio_evidence?.quality_flags && evidenceReport.audio_evidence.quality_flags.length > 0 && (
+                  <div className="py-1">
+                    <span className="text-slate-400 block mb-1">Quality Flags:</span>
+                    <span className="text-[10px] text-amber-300 bg-slate-900 p-1 rounded border border-slate-800 block">
+                      {evidenceReport.audio_evidence.quality_flags.join(', ')}
+                    </span>
+                  </div>
+                )}
                 <div className="py-1">
                   <span className="text-slate-400 block mb-1">Audio File SHA-256:</span>
                   <span className="text-[11px] text-cyan-400 break-all bg-slate-900/80 p-1.5 rounded-lg border border-slate-800/80 block">
@@ -597,6 +712,18 @@ export default function DetectionDetailPage() {
                   <span className="text-slate-400">P(synthetic):</span>
                   <span className="text-rose-400 font-bold">{evidenceReport?.model_evidence?.synthetic_probability !== null && evidenceReport?.model_evidence?.synthetic_probability !== undefined ? evidenceReport.model_evidence.synthetic_probability.toFixed(4) : (res?.prediction === 'synthetic' ? res.confidence.toFixed(4) : (1 - (res?.confidence || 0)).toFixed(4))}</span>
                 </div>
+                {evidenceReport?.model_evidence?.raw_ml_action && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-400">Raw Model Action:</span>
+                    <span className="text-slate-200 font-bold">{evidenceReport.model_evidence.raw_ml_action}</span>
+                  </div>
+                )}
+                {evidenceReport?.model_evidence?.final_operational_action && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-400">Operational Action:</span>
+                    <span className="text-cyan-300 font-bold">{evidenceReport.model_evidence.final_operational_action}</span>
+                  </div>
+                )}
                 {evidenceReport?.model_evidence?.analysis_mode === 'multi_window' && (
                   <>
                     <div className="flex justify-between py-1">
@@ -606,11 +733,17 @@ export default function DetectionDetailPage() {
                     <div className="flex justify-between py-1">
                       <span className="text-slate-400">Windows Analyzed:</span>
                       <span className="text-slate-200">
-                        {evidenceReport.model_evidence.window_count} (
+                        {evidenceReport.model_evidence.eligible_window_count ?? evidenceReport.model_evidence.window_count} active / {evidenceReport.model_evidence.window_count} total (
                         {evidenceReport.model_evidence.window_length_seconds?.toFixed(2)}s window, ~
                         {evidenceReport.model_evidence.hop_seconds?.toFixed(2)}s hop)
                       </span>
                     </div>
+                    {evidenceReport.model_evidence.excluded_low_energy_window_count !== null && evidenceReport.model_evidence.excluded_low_energy_window_count !== undefined && evidenceReport.model_evidence.excluded_low_energy_window_count > 0 && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-400">Excluded Silence:</span>
+                        <span className="text-amber-400">{evidenceReport.model_evidence.excluded_low_energy_window_count} windows</span>
+                      </div>
+                    )}
                     <div className="flex justify-between py-1">
                       <span className="text-slate-400">Aggregation Strategy:</span>
                       <span className="text-slate-300">
@@ -637,8 +770,8 @@ export default function DetectionDetailPage() {
               </div>
               <div className="space-y-2 text-xs font-mono text-slate-300">
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-400">Action:</span>
-                  <span className="font-bold text-slate-200">{evidenceReport?.security_decision?.action || res?.action || 'N/A (Legacy)'}</span>
+                  <span className="text-slate-400">Operational Directive:</span>
+                  <span className="font-bold text-slate-200">{evidenceReport?.security_decision?.final_operational_action || evidenceReport?.security_decision?.action || res?.action || 'N/A (Legacy)'}</span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-slate-400">Policy Version:</span>

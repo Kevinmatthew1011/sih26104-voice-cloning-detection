@@ -1,11 +1,12 @@
 import React from 'react';
-import { PredictionType, RiskLevelType, ActionType } from '../lib/types';
-import { ShieldCheck, ShieldAlert, AlertTriangle, HelpCircle, Lock, CheckCircle2 } from 'lucide-react';
+import { PredictionType, RiskLevelType, ActionType, ReliabilityType } from '../lib/types';
+import { ShieldCheck, ShieldAlert, AlertTriangle, HelpCircle, Lock, CheckCircle2, Sliders, AlertOctagon } from 'lucide-react';
 
 interface ThreatBadgeProps {
   prediction?: PredictionType;
   riskLevel?: RiskLevelType;
   action?: ActionType;
+  reliability?: ReliabilityType;
   showIcon?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
@@ -15,10 +16,50 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
   prediction,
   riskLevel,
   action,
+  reliability,
   showIcon = true,
   size = 'md',
   className = '',
 }) => {
+  // If reliability rating is provided
+  if (reliability) {
+    switch (reliability) {
+      case 'reliable':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
+            } bg-emerald-950/40 text-emerald-300 border-emerald-500/30 ${className}`}
+          >
+            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-emerald-400'} />}
+            Reliable Input
+          </span>
+        );
+      case 'degraded':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
+            } bg-amber-950/60 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
+          >
+            {showIcon && <Sliders className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-400'} />}
+            Degraded Channel
+          </span>
+        );
+      case 'insufficient_speech':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
+            } bg-rose-950/60 text-rose-300 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.15)] ${className}`}
+          >
+            {showIcon && <AlertOctagon className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-rose-400'} />}
+            Insufficient Speech
+          </span>
+        );
+    }
+  }
+
   // If security action is provided
   if (action) {
     switch (action) {
@@ -53,6 +94,17 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           >
             {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
             ALLOW
+          </span>
+        );
+      case 'NOT_EVALUATED':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
+              size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
+            } bg-slate-900 text-slate-400 border-slate-700 ${className}`}
+          >
+            {showIcon && <HelpCircle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            Not Evaluated
           </span>
         );
     }
@@ -131,6 +183,17 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           >
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Medium Risk
+          </span>
+        );
+      case 'not_assessed':
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded uppercase tracking-wider ${
+              size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
+            } bg-slate-900 text-slate-400 border border-slate-700 ${className}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            Risk Not Assessed
           </span>
         );
       case 'low':

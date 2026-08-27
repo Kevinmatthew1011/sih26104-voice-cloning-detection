@@ -14,9 +14,19 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
   prediction,
   size = 'md',
 }) => {
-  const percentage = Math.round(confidence * 100);
+  const isEvaluated = prediction !== 'unknown' && riskLevel !== 'not_assessed' && confidence > 0;
+  const percentage = isEvaluated ? Math.round(confidence * 100) : 0;
 
   const getColorClass = () => {
+    if (!isEvaluated) {
+      return {
+        text: 'text-slate-400',
+        stroke: 'stroke-slate-700',
+        bg: 'bg-slate-800/20',
+        border: 'border-slate-700',
+        glow: '',
+      };
+    }
     if (prediction === 'synthetic' || riskLevel === 'high') {
       return {
         text: 'text-red-400',
@@ -59,7 +69,7 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
   const radius = size === 'lg' ? 44 : size === 'sm' ? 24 : 34;
   const strokeWidth = size === 'lg' ? 7 : size === 'sm' ? 4 : 5;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  const strokeDashoffset = isEvaluated ? circumference - (percentage / 100) * circumference : circumference;
   const svgSize = (radius + strokeWidth) * 2;
 
   const probabilityLabel =
@@ -107,7 +117,7 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
               size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-xs' : 'text-base'
             } ${colors.text}`}
           >
-            {percentage}%
+            {isEvaluated ? `${percentage}%` : 'N/A'}
           </span>
         </div>
       </div>
@@ -116,10 +126,10 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
           {probabilityLabel}
         </span>
         <span className="text-sm font-semibold text-slate-200 font-mono">
-          {(confidence * 100).toFixed(1)}%
+          {isEvaluated ? `${(confidence * 100).toFixed(1)}%` : 'N/A'}
         </span>
         <span className="text-[10px] text-slate-500 font-mono">
-          Uncalibrated model estimate
+          {isEvaluated ? 'Uncalibrated model estimate' : 'Model not evaluated'}
         </span>
       </div>
     </div>

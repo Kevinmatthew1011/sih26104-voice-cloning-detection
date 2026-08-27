@@ -25,6 +25,9 @@ class ReportAudioEvidence(BaseModel):
     sample_rate_hz: Optional[int] = None
     channels: Optional[int] = None
     file_sha256: Optional[str] = None
+    audio_quality: Optional[Dict[str, Any]] = None
+    analysis_reliability: Optional[str] = None
+    quality_flags: Optional[List[str]] = None
 
 
 class ReportModelEvidence(BaseModel):
@@ -43,10 +46,15 @@ class ReportModelEvidence(BaseModel):
     explanation: Optional[str] = None
     scoring_note: Optional[str] = "Probability estimates represent uncalibrated model score transformations."
     analysis_mode: Optional[str] = None
+    analysis_status: Optional[str] = None
     window_count: Optional[int] = None
+    eligible_window_count: Optional[int] = None
+    excluded_low_energy_window_count: Optional[int] = None
     window_length_seconds: Optional[float] = None
     hop_seconds: Optional[float] = None
     aggregation_method: Optional[str] = None
+    raw_ml_action: Optional[ActionEnum] = None
+    final_operational_action: Optional[ActionEnum] = None
     suspicious_segments: Optional[List[SuspiciousSegmentDTO]] = None
 
 

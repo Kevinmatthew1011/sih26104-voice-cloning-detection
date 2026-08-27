@@ -341,10 +341,20 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
                 Detection Result
               </span>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <ThreatBadge prediction={result.prediction} size="lg" />
-                <ThreatBadge riskLevel={result.risk_level} size="md" />
+                <ThreatBadge
+                  riskLevel={
+                    result.prediction === 'unknown' || result.raw_ml_action === 'NOT_EVALUATED' || result.analysis_status === 'inconclusive'
+                      ? 'not_assessed'
+                      : result.risk_level
+                  }
+                  size="md"
+                />
                 {result.action && <ThreatBadge action={result.action} size="md" />}
+                {(result.analysis_reliability || result.decision?.analysis_reliability || result.audio_quality?.analysis_reliability) && (
+                  <ThreatBadge reliability={result.analysis_reliability || result.decision?.analysis_reliability || result.audio_quality?.analysis_reliability} size="md" />
+                )}
               </div>
             </div>
 

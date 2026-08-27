@@ -100,18 +100,22 @@ export const RecentDetectionsTable: React.FC<RecentDetectionsTableProps> = ({
 
                   <td className="py-3.5 px-4 font-mono font-medium">
                     {res ? (
-                      <span
-                        className={
-                          res.prediction === 'synthetic'
-                            ? 'text-red-400'
-                            : res.prediction === 'replay'
-                            ? 'text-amber-400'
-                            : 'text-emerald-400'
-                        }
-                        title="Uncalibrated model probability estimate"
-                      >
-                        {Math.round(res.confidence * 100)}%
-                      </span>
+                      res.prediction === 'unknown' || res.confidence === 0 ? (
+                        <span className="text-slate-400">N/A</span>
+                      ) : (
+                        <span
+                          className={
+                            res.prediction === 'synthetic'
+                              ? 'text-red-400'
+                              : res.prediction === 'replay'
+                              ? 'text-amber-400'
+                              : 'text-emerald-400'
+                          }
+                          title="Uncalibrated model probability estimate"
+                        >
+                          {Math.round(res.confidence * 100)}%
+                        </span>
+                      )
                     ) : (
                       '--'
                     )}
@@ -119,7 +123,14 @@ export const RecentDetectionsTable: React.FC<RecentDetectionsTableProps> = ({
 
                   <td className="py-3.5 px-4">
                     {res ? (
-                      <ThreatBadge riskLevel={res.risk_level} size="sm" />
+                      <ThreatBadge
+                        riskLevel={
+                          res.prediction === 'unknown' || res.raw_ml_action === 'NOT_EVALUATED' || res.analysis_status === 'inconclusive'
+                            ? 'not_assessed'
+                            : res.risk_level
+                        }
+                        size="sm"
+                      />
                     ) : (
                       '--'
                     )}

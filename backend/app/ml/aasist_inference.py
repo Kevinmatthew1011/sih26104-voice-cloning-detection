@@ -13,6 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from app.ml.aasist_model import Model as AASISTModel
+from app.services.audio_quality import AudioQualityAnalyzer, AudioQualityDTO
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def pad_waveform(waveform: np.ndarray, max_len: int = TARGET_SAMPLE_COUNT) -> np
 
 
 class AudioWindowSlice:
-    """Represents a sliced/padded 64,600-sample temporal window with exact timestamps."""
+    """Represents a sliced/padded 64,600-sample temporal window with exact timestamps and energy facts."""
 
     def __init__(
         self,
@@ -67,6 +68,24 @@ class AudioWindowSlice:
         self.end_seconds = round(end_seconds, 4)
         self.window_index = window_index
         self.is_tail = is_tail
+
+        # Compute deterministic window energy and activity facts
+        rms_val = np.sqrt(np.mean(waveform ** 2) + 1e-12)
+        self.rms_dbfs = float(round(20.0 * np.log10(rms_val), 2))
+        act_frac, _, _, _ = AudioQualityAnalyzer.compute_frame_activity(waveform)
+        self.active_fraction = float(round(act_frac, 4))
+
+        # Eligibility determination:
+        # Exclude pure silence/near-silence windows from polluting max_v1 aggregation
+        if self.rms_dbfs < -55.0 or self.active_fraction < 0.05:
+            self.activity_status = "low_energy"
+            self.aggregation_eligible = False
+        elif self.active_fraction < 0.45:
+            self.activity_status = "sparse_speech"
+            self.aggregation_eligible = True
+        else:
+            self.activity_status = "active"
+            self.aggregation_eligible = True
 
 
 def segment_audio_windows(
@@ -363,7 +382,7 @@ class AASISTInferenceEngine:
                 raise RuntimeError(f"Could not load AASIST checkpoint: {e}") from e
 
     def _load_and_resample_full(self, audio_source: Union[str, Path, bytes, np.ndarray]) -> tuple[np.ndarray, int]:
-        """Decode and resample audio to 16 kHz mono without length truncation."""
+        """Decode and resample audio to 16 kHz mono without length truncation. Returns (wav_16k, native_sample_rate)."""
         if isinstance(audio_source, (str, Path)):
             audio_path = Path(audio_source)
             if not audio_path.exists():
@@ -379,6 +398,8 @@ class AASISTInferenceEngine:
         else:
             raise TypeError(f"Unsupported audio source type: {type(audio_source)}")
 
+        native_sr = int(sr)
+
         # Convert to mono if multi-channel
         if wav.ndim > 1:
             wav = np.mean(wav, axis=1)
@@ -387,7 +408,7 @@ class AASISTInferenceEngine:
         if sr != TARGET_SAMPLE_RATE:
             wav = librosa.resample(wav, orig_sr=sr, target_sr=TARGET_SAMPLE_RATE)
 
-        return wav, TARGET_SAMPLE_RATE
+        return wav, native_sr
 
     def preprocess_audio(self, audio_source: Union[str, Path, bytes]) -> np.ndarray:
         """
@@ -416,10 +437,13 @@ class AASISTInferenceEngine:
         start_time = time.perf_counter()
 
         # 1. Decode & resample to 16 kHz mono (full length)
-        wav_full, sr = self._load_and_resample_full(audio_source)
+        wav_full, native_sr = self._load_and_resample_full(audio_source)
         total_duration = float(len(wav_full) / TARGET_SAMPLE_RATE)
 
-        # 2. Safety limits validation
+        # 2. Extract deterministic signal quality facts
+        audio_quality = AudioQualityAnalyzer.analyze_audio(wav_full, native_sample_rate_hz=native_sr)
+
+        # 3. Safety limits validation
         from app.config import settings
         max_duration = getattr(settings, "MAX_AUDIO_DURATION_SECONDS", 300.0)
         max_windows = getattr(settings, "MAX_MULTIWINDOW_WINDOWS", 350)
@@ -428,7 +452,7 @@ class AASISTInferenceEngine:
         if total_duration > max_duration:
             raise ValueError(f"Audio duration ({total_duration:.1f}s) exceeds maximum allowed limit ({max_duration:.1f}s).")
 
-        # 3. Generate deterministic window slices
+        # 4. Generate deterministic window slices
         actual_hop = hop_length if hop_length is not None else default_hop
         actual_overlap = round(1.0 - (actual_hop / TARGET_SAMPLE_COUNT), 4)
         actual_hop_sec = round(actual_hop / TARGET_SAMPLE_RATE, 5)
@@ -439,67 +463,121 @@ class AASISTInferenceEngine:
         if num_windows > max_windows:
             raise ValueError(f"Audio requires {num_windows} windows, exceeding maximum allowed limit ({max_windows}).")
 
-        # 4. Batched inference under torch.inference_mode
-        window_telemetries: list[dict[str, Any]] = []
+        # 5. Batched inference only for aggregation-eligible windows (Option A)
+        eligible_slices = [s for s in window_slices if s.aggregation_eligible]
+        inferred_telemetries: dict[int, dict[str, Any]] = {}
 
-        for b_start in range(0, num_windows, batch_size):
-            b_slices = window_slices[b_start : b_start + batch_size]
-            b_tensors = np.stack([s.waveform for s in b_slices], axis=0)
-            tensor_x = torch.FloatTensor(b_tensors).to(self.device)
+        if eligible_slices:
+            for b_start in range(0, len(eligible_slices), batch_size):
+                b_slices = eligible_slices[b_start : b_start + batch_size]
+                b_tensors = np.stack([s.waveform for s in b_slices], axis=0)
+                tensor_x = torch.FloatTensor(b_tensors).to(self.device)
 
-            try:
-                with torch.inference_mode():
-                    _, logits_tensor = self.model(tensor_x)
-                    logits_np = logits_tensor.cpu().numpy()
-            except torch.cuda.OutOfMemoryError:
-                logger.warning("CUDA OOM during batched AASIST inference. Executing CPU fallback...")
-                torch.cuda.empty_cache()
-                self.model.to("cpu")
-                with torch.inference_mode():
-                    _, logits_tensor = self.model(torch.FloatTensor(b_tensors).to("cpu"))
-                    logits_np = logits_tensor.numpy()
-                self.model.to(self.device)
+                try:
+                    with torch.inference_mode():
+                        _, logits_tensor = self.model(tensor_x)
+                        logits_np = logits_tensor.cpu().numpy()
+                except torch.cuda.OutOfMemoryError:
+                    logger.warning("CUDA OOM during batched AASIST inference. Executing CPU fallback...")
+                    torch.cuda.empty_cache()
+                    self.model.to("cpu")
+                    with torch.inference_mode():
+                        _, logits_tensor = self.model(torch.FloatTensor(b_tensors).to("cpu"))
+                        logits_np = logits_tensor.numpy()
+                    self.model.to(self.device)
 
-            for i, s in enumerate(b_slices):
-                s0 = float(logits_np[i][0])
-                s1 = float(logits_np[i][1])
-                logits_t = torch.tensor([s0, s1], dtype=torch.float32)
-                probs = F.softmax(logits_t, dim=0).numpy()
-                prob_synth = float(probs[0])
-                prob_real = float(probs[1])
-                cm_score = float(s1 - s0)
-                pred = "synthetic" if prob_synth >= 0.50 else "real"
+                for i, s in enumerate(b_slices):
+                    s0 = float(logits_np[i][0])
+                    s1 = float(logits_np[i][1])
+                    logits_t = torch.tensor([s0, s1], dtype=torch.float32)
+                    probs = F.softmax(logits_t, dim=0).numpy()
+                    prob_synth = float(probs[0])
+                    prob_real = float(probs[1])
+                    cm_score = float(s1 - s0)
+                    pred = "synthetic" if prob_synth >= 0.50 else "real"
 
-                window_telemetries.append(
-                    {
-                        "window_index": s.window_index,
-                        "start_seconds": s.start_seconds,
-                        "end_seconds": s.end_seconds,
+                    inferred_telemetries[s.window_index] = {
                         "synthetic_probability": round(prob_synth, 4),
                         "real_probability": round(prob_real, 4),
                         "cm_score": round(cm_score, 4),
                         "prediction": pred,
                     }
+
+        # Build full window telemetries preserving exact temporal ordering
+        window_telemetries: list[dict[str, Any]] = []
+        for s in window_slices:
+            if s.aggregation_eligible and s.window_index in inferred_telemetries:
+                inf = inferred_telemetries[s.window_index]
+                window_telemetries.append(
+                    {
+                        "window_index": s.window_index,
+                        "start_seconds": s.start_seconds,
+                        "end_seconds": s.end_seconds,
+                        "rms_dbfs": s.rms_dbfs,
+                        "active_fraction": s.active_fraction,
+                        "activity_status": s.activity_status,
+                        "aggregation_eligible": True,
+                        "synthetic_probability": inf["synthetic_probability"],
+                        "real_probability": inf["real_probability"],
+                        "cm_score": inf["cm_score"],
+                        "prediction": inf["prediction"],
+                    }
+                )
+            else:
+                # Option A: low-energy non-speech window excluded prior to inference
+                window_telemetries.append(
+                    {
+                        "window_index": s.window_index,
+                        "start_seconds": s.start_seconds,
+                        "end_seconds": s.end_seconds,
+                        "rms_dbfs": s.rms_dbfs,
+                        "active_fraction": s.active_fraction,
+                        "activity_status": "low_energy",
+                        "aggregation_eligible": False,
+                        "synthetic_probability": None,
+                        "real_probability": None,
+                        "cm_score": None,
+                        "prediction": None,
+                    }
                 )
 
-        # 5. Candidate aggregation
-        agg_fn = AGGREGATION_REGISTRY.get(aggregation_method, aggregate_max_v1)
-        all_probs = [w["synthetic_probability"] for w in window_telemetries]
-        all_cms = [w["cm_score"] for w in window_telemetries]
-        file_synth_prob, file_real_prob, file_cm_score = agg_fn(all_probs, all_cms)
+        # 6. Low-energy exclusion & candidate aggregation
+        eligible_windows = [w for w in window_telemetries if w.get("aggregation_eligible", True)]
+        excluded_count = num_windows - len(eligible_windows)
 
-        # 6. Extract suspicious segments
-        suspicious_segs = extract_suspicious_segments(window_telemetries, threshold=0.50)
+        if len(eligible_windows) > 0:
+            agg_fn = AGGREGATION_REGISTRY.get(aggregation_method, aggregate_max_v1)
+            eligible_probs = [w["synthetic_probability"] for w in eligible_windows if w["synthetic_probability"] is not None]
+            eligible_cms = [w["cm_score"] for w in eligible_windows if w["cm_score"] is not None]
+            file_synth_prob, file_real_prob, file_cm_score = agg_fn(eligible_probs, eligible_cms)
 
-        # 7. File-level prediction and risk
-        file_pred = "synthetic" if file_synth_prob >= 0.50 else "real"
-        confidence = file_synth_prob if file_pred == "synthetic" else file_real_prob
-        confidence = float(np.clip(confidence, 0.0, 1.0))
+            # Suspicious segments over eligible windows
+            suspicious_segs = extract_suspicious_segments(eligible_windows, threshold=0.50)
 
-        if file_pred == "synthetic":
-            risk_level = "high" if confidence >= 0.70 else "medium"
+            # File-level prediction and risk
+            file_pred = "synthetic" if file_synth_prob >= 0.50 else "real"
+            confidence = file_synth_prob if file_pred == "synthetic" else file_real_prob
+            confidence = float(np.clip(confidence, 0.0, 1.0))
+
+            if file_pred == "synthetic":
+                risk_level = "high" if confidence >= 0.70 else "medium"
+            else:
+                risk_level = "low"
+
+            analysis_status = "completed"
+            synth_prob_val = round(file_synth_prob, 4)
+            real_prob_val = round(file_real_prob, 4)
+            cm_score_val = round(file_cm_score, 4)
         else:
+            # All windows excluded due to insufficient active speech
+            analysis_status = "inconclusive"
+            file_pred = "unknown"
+            confidence = 0.0
             risk_level = "low"
+            synth_prob_val = None
+            real_prob_val = None
+            cm_score_val = None
+            suspicious_segs = []
 
         end_time = time.perf_counter()
         latency_ms = int((end_time - start_time) * 1000)
@@ -510,31 +588,43 @@ class AASISTInferenceEngine:
         multi_window_meta = {
             "analysis_mode": analysis_mode,
             "window_count": num_windows,
+            "eligible_window_count": len(eligible_windows),
+            "excluded_low_energy_window_count": excluded_count,
             "window_length_seconds": 4.0375,
             "hop_seconds": actual_hop_sec,
             "overlap_fraction": actual_overlap,
             "aggregation_method": aggregation_method,
             "aggregation_version": "v1.0",
-            "file_level_synthetic_probability": round(file_synth_prob, 4),
-            "file_level_real_probability": round(file_real_prob, 4),
-            "file_level_cm_score": round(file_cm_score, 4),
+            "file_level_synthetic_probability": synth_prob_val,
+            "file_level_real_probability": real_prob_val,
+            "file_level_cm_score": cm_score_val,
+            "analysis_status": analysis_status,
+            "analysis_reliability": audio_quality.analysis_reliability,
+            "quality_flags": audio_quality.quality_flags,
+            "audio_quality": audio_quality.model_dump(),
             "suspicious_segments": suspicious_segs,
             "windows_persisted": bounded_windows,
         }
 
-        if analysis_mode == "multi_window":
-            seg_note = f" Detected {len(suspicious_segs)} suspicious segment(s)." if suspicious_segs else " No suspicious segments localized."
+        if analysis_status == "inconclusive":
             explanation = (
-                f"AASIST multi-window graph attention analysis ({num_windows} temporal windows, {aggregation_method} aggregation)."
-                f" File synthetic estimate: {file_synth_prob:.2%}, genuine estimate: {file_real_prob:.2%}. "
-                f"Worst-case CM score: {file_cm_score:+.4f}.{seg_note} "
+                "Insufficient analyzable speech detected across all audio windows. "
+                "Voice authenticity could not be assessed. Perform secondary identity verification."
+            )
+        elif analysis_mode == "multi_window":
+            seg_note = f" Detected {len(suspicious_segs)} suspicious segment(s)." if suspicious_segs else " No suspicious segments localized."
+            excl_note = f" ({excluded_count} low-energy window(s) excluded from aggregation)." if excluded_count > 0 else ""
+            explanation = (
+                f"AASIST multi-window graph attention analysis ({len(eligible_windows)}/{num_windows} eligible windows, {aggregation_method} aggregation){excl_note}."
+                f" File synthetic estimate: {synth_prob_val:.2%}, genuine estimate: {real_prob_val:.2%}. "
+                f"Worst-case CM score: {cm_score_val:+.4f}.{seg_note} "
                 "Note: Probability values represent model softmax estimates (uncalibrated) and do not reflect definitive attribution."
             )
         else:
             explanation = (
                 f"AASIST deep graph attention network classification (SincNet front-end + Heterogeneous Spectro-Temporal Graph Attention). "
-                f"Predicted synthetic estimate: {file_synth_prob:.2%}, genuine estimate: {file_real_prob:.2%}. "
-                f"Forensic CM score: {file_cm_score:+.4f}. "
+                f"Predicted synthetic estimate: {synth_prob_val:.2%}, genuine estimate: {real_prob_val:.2%}. "
+                f"Forensic CM score: {cm_score_val:+.4f}. "
                 "Note: Probability values represent model softmax estimates (uncalibrated) and do not reflect definitive attribution."
             )
 
@@ -546,9 +636,13 @@ class AASISTInferenceEngine:
             "processing_time_ms": latency_ms,
             "attack_type": None,
             "explanation": explanation,
+            "analysis_status": analysis_status,
+            "analysis_reliability": audio_quality.analysis_reliability,
+            "quality_flags": audio_quality.quality_flags,
+            "audio_quality": audio_quality.model_dump(),
             "probabilities": {
-                "real": round(file_real_prob, 4),
-                "synthetic": round(file_synth_prob, 4),
+                "real": real_prob_val,
+                "synthetic": synth_prob_val,
             },
             "spectral_artifacts": {
                 "architecture": "AASIST (SincNet + RawNet2 + H-GAT)",
@@ -556,19 +650,24 @@ class AASISTInferenceEngine:
                 "input_samples_analyzed": TARGET_SAMPLE_COUNT if num_windows == 1 else len(wav_full),
                 "target_sample_rate_hz": TARGET_SAMPLE_RATE,
                 "device_used": str(self.device),
-                "cm_score": round(file_cm_score, 4),
+                "cm_score": cm_score_val,
                 "window_count": num_windows,
                 "analysis_mode": analysis_mode,
+                "analysis_reliability": audio_quality.analysis_reliability,
             },
             "metadata_json": {
                 "engine_type": "aasist",
-                "synthetic_probability": round(file_synth_prob, 4),
-                "real_probability": round(file_real_prob, 4),
+                "synthetic_probability": synth_prob_val,
+                "real_probability": real_prob_val,
                 "model_version": self.metadata.get("model_version", "aasist-v1"),
                 "checkpoint_sha256": OFFICIAL_AASIST_SHA256,
-                "cm_score": round(file_cm_score, 4),
+                "cm_score": cm_score_val,
                 "target_sample_rate": TARGET_SAMPLE_RATE,
                 "analyzed_duration_seconds": round(total_duration, 4),
+                "analysis_status": analysis_status,
+                "analysis_reliability": audio_quality.analysis_reliability,
+                "quality_flags": audio_quality.quality_flags,
+                "audio_quality": audio_quality.model_dump(),
                 "total_duration_seconds": duration_seconds or round(total_duration, 4),
                 "file_size_bytes": file_size_bytes,
                 "device": str(self.device),

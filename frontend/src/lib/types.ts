@@ -1,14 +1,31 @@
 export type PredictionType = 'real' | 'synthetic' | 'replay' | 'unknown';
-export type RiskLevelType = 'low' | 'medium' | 'high';
+export type RiskLevelType = 'low' | 'medium' | 'high' | 'not_assessed';
 export type CaseStatusType = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type ActionType = 'ALLOW' | 'VERIFY' | 'BLOCK';
+export type ActionType = 'ALLOW' | 'VERIFY' | 'BLOCK' | 'NOT_EVALUATED';
+export type ReliabilityType = 'reliable' | 'degraded' | 'insufficient_speech';
+
+export interface AudioQuality {
+  native_sample_rate_hz: number;
+  effective_bandwidth_class: string;
+  rms_dbfs: number;
+  peak_amplitude: number;
+  clipped_sample_fraction: number;
+  active_speech_fraction: number;
+  low_energy_fraction: number;
+  quality_flags: string[];
+  analysis_reliability: ReliabilityType;
+}
 
 export interface SecurityDecision {
   action: ActionType;
   decision_message: string;
-  synthetic_probability: number;
+  synthetic_probability?: number | null;
   policy_version: string;
   decision_source?: string | null;
+  raw_ml_action?: ActionType | null;
+  final_operational_action?: ActionType | null;
+  analysis_reliability?: ReliabilityType | null;
+  quality_flags?: string[];
   reason_codes: string[];
   recommended_steps: string[];
 }
@@ -27,6 +44,12 @@ export interface DetectionResult {
   spectral_artifacts?: Record<string, any> | null;
   metadata_json?: Record<string, any> | null;
   action?: ActionType | null;
+  raw_ml_action?: ActionType | null;
+  final_operational_action?: ActionType | null;
+  analysis_status?: string | null;
+  analysis_reliability?: ReliabilityType | null;
+  quality_flags?: string[];
+  audio_quality?: AudioQuality | null;
   decision_message?: string | null;
   decision?: SecurityDecision | null;
 }
@@ -98,6 +121,9 @@ export interface ReportAudioEvidence {
   sample_rate_hz?: number | null;
   channels?: number | null;
   file_sha256?: string | null;
+  audio_quality?: AudioQuality | null;
+  analysis_reliability?: ReliabilityType | null;
+  quality_flags?: string[] | null;
 }
 
 export interface SuspiciousSegment {
@@ -125,7 +151,10 @@ export interface ReportModelEvidence {
   explanation?: string | null;
   scoring_note?: string | null;
   analysis_mode?: string | null;
+  analysis_status?: string | null;
   window_count?: number | null;
+  eligible_window_count?: number | null;
+  excluded_low_energy_window_count?: number | null;
   window_length_seconds?: number | null;
   hop_seconds?: number | null;
   overlap_fraction?: number | null;
@@ -133,6 +162,8 @@ export interface ReportModelEvidence {
   aggregation_version?: string | null;
   file_level_synthetic_probability?: number | null;
   file_level_cm_score?: number | null;
+  raw_ml_action?: ActionType | null;
+  final_operational_action?: ActionType | null;
   suspicious_segments?: SuspiciousSegment[] | null;
   persisted_window_count?: number | null;
 }

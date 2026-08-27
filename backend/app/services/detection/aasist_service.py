@@ -89,6 +89,10 @@ class AASISTDetectionService(BaseDetectionService):
                 explanation=inference_result.get("explanation"),
                 spectral_artifacts=inference_result.get("spectral_artifacts"),
                 metadata_json=inference_result.get("metadata_json"),
+                analysis_status=inference_result.get("analysis_status", "completed"),
+                analysis_reliability=inference_result.get("analysis_reliability", "reliable"),
+                quality_flags=inference_result.get("quality_flags", []),
+                audio_quality=inference_result.get("audio_quality"),
             )
         except HTTPException:
             raise
