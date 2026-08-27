@@ -26,6 +26,7 @@ class CaseStatusEnum(str, Enum):
 
 class DetectionResultDTO(BaseModel):
     """Data Transfer Object returned by the Detection Service Interface."""
+    engine_type: str
     prediction: PredictionEnum
     confidence: float = Field(..., ge=0.0, le=1.0)
     risk_level: RiskLevelEnum
@@ -40,6 +41,7 @@ class DetectionResultDTO(BaseModel):
 class DetectionResultResponse(BaseModel):
     """Exact contract required by the specification."""
     id: str
+    engine_type: str
     prediction: PredictionEnum
     confidence: float
     risk_level: RiskLevelEnum
@@ -63,6 +65,8 @@ class DetectionCaseSummaryResponse(BaseModel):
     file_size_bytes: int
     mime_type: str
     duration_seconds: Optional[float] = None
+    sample_rate: Optional[int] = None
+    channels: Optional[int] = None
     status: CaseStatusEnum
     created_at: datetime
     updated_at: datetime
@@ -75,9 +79,12 @@ class DetectionCaseDetailResponse(BaseModel):
     """Complete detail view for a detection case."""
     id: str
     filename: str
+    file_hash: Optional[str] = None
     file_size_bytes: int
     mime_type: str
     duration_seconds: Optional[float] = None
+    sample_rate: Optional[int] = None
+    channels: Optional[int] = None
     status: CaseStatusEnum
     created_at: datetime
     updated_at: datetime
@@ -93,3 +100,4 @@ class DetectionCaseListResponse(BaseModel):
     items: List[DetectionCaseSummaryResponse]
     limit: int
     skip: int
+

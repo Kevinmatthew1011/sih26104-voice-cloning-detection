@@ -16,6 +16,7 @@ from app.schemas.detection import (
     RiskLevelEnum,
 )
 from app.services.audio_validator import AudioValidator
+from app.services.audio_metadata import AudioMetadataService
 from app.services.storage import AudioStorageService
 from app.services.detection.factory import get_detection_service
 
@@ -35,47 +36,55 @@ async def create_detection(
     """
     Core detection endpoint:
     1. Validates audio format, size, and integrity.
-    2. Persists the audio file and creates a detection case.
-    3. Executes the Detection Service (Mock or Production Model).
-    4. Persists the forensic detection result.
-    5. Returns the structured detection result.
+    2. Extracts acoustic metadata (SHA-256 fingerprint, sample rate, channels, duration).
+    3. Persists the audio file and creates a detection case.
+    4. Executes the Detection Service (Mock or Production Model).
+    5. Persists the forensic detection result.
+    6. Returns the structured detection result.
     """
     # 1. Validate filename and content
     filename = file.filename or "unknown_audio.wav"
     AudioValidator.validate_filename_extension(filename)
     
-    content, mime_type, file_size, duration = await AudioValidator.validate_file_content(file)
+    content, mime_type, file_size = await AudioValidator.validate_file_content(file)
 
-    # 2. Initialize Detection Case record
+    # 2. Extract acoustic metadata and compute SHA-256 integrity fingerprint
+    metadata = AudioMetadataService.extract_metadata(content)
+
+    # 3. Initialize Detection Case record
     case = DetectionCase(
         filename=filename,
         storage_path="",  # Temporary placeholder until saved
+        file_hash=metadata.file_hash,
         file_size_bytes=file_size,
         mime_type=mime_type,
-        duration_seconds=duration,
+        duration_seconds=metadata.duration,
+        sample_rate=metadata.sample_rate,
+        channels=metadata.channels,
         status="PROCESSING",
     )
     db.add(case)
     await db.flush()  # Generate case.id
 
     try:
-        # 3. Store the audio file securely
+        # 4. Store the audio file securely
         saved_path = AudioStorageService.save_audio(case.id, filename, content)
         case.storage_path = str(saved_path)
 
-        # 4. Invoke ML Detection Service
+        # 5. Invoke ML Detection Service
         detection_service = get_detection_service()
         dto = await detection_service.detect(
             audio_path=saved_path,
             filename=filename,
             mime_type=mime_type,
             file_size_bytes=file_size,
-            duration_seconds=duration,
+            duration_seconds=metadata.duration,
         )
 
-        # 5. Persist Detection Result
+        # 6. Persist Detection Result
         result = DetectionResult(
             detection_case_id=case.id,
+            engine_type=dto.engine_type,
             prediction=dto.prediction.value,
             confidence=dto.confidence,
             risk_level=dto.risk_level.value,
@@ -93,6 +102,7 @@ async def create_detection(
 
         return DetectionResultResponse(
             id=result.id,
+            engine_type=result.engine_type,
             prediction=PredictionEnum(result.prediction),
             confidence=result.confidence,
             risk_level=RiskLevelEnum(result.risk_level),
@@ -165,6 +175,7 @@ async def list_detections(
         if c.result:
             result_dto = DetectionResultResponse(
                 id=c.result.id,
+                engine_type=c.result.engine_type,
                 prediction=PredictionEnum(c.result.prediction),
                 confidence=c.result.confidence,
                 risk_level=RiskLevelEnum(c.result.risk_level),
@@ -183,6 +194,8 @@ async def list_detections(
                 file_size_bytes=c.file_size_bytes,
                 mime_type=c.mime_type,
                 duration_seconds=c.duration_seconds,
+                sample_rate=c.sample_rate,
+                channels=c.channels,
                 status=c.status,
                 created_at=c.created_at,
                 updated_at=c.updated_at,
@@ -232,6 +245,7 @@ async def get_detection(
     if case.result:
         result_dto = DetectionResultResponse(
             id=case.result.id,
+            engine_type=case.result.engine_type,
             prediction=PredictionEnum(case.result.prediction),
             confidence=case.result.confidence,
             risk_level=RiskLevelEnum(case.result.risk_level),
@@ -247,9 +261,12 @@ async def get_detection(
     return DetectionCaseDetailResponse(
         id=case.id,
         filename=case.filename,
+        file_hash=case.file_hash,
         file_size_bytes=case.file_size_bytes,
         mime_type=case.mime_type,
         duration_seconds=case.duration_seconds,
+        sample_rate=case.sample_rate,
+        channels=case.channels,
         status=case.status,
         created_at=case.created_at,
         updated_at=case.updated_at,

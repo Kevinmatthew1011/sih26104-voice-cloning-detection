@@ -180,6 +180,7 @@ class MockDetectionService(BaseDetectionService):
         }
 
         return DetectionResultDTO(
+            engine_type="mock",
             prediction=prediction,
             confidence=round(confidence, 4),
             risk_level=risk_level,

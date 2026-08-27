@@ -1,6 +1,7 @@
 import io
 import pytest
 from httpx import AsyncClient
+from app.services.audio_metadata import AudioMetadataService, AudioMetadata
 
 
 def create_dummy_wav_bytes(duration_seconds: int = 1) -> bytes:
@@ -23,6 +24,17 @@ def create_dummy_wav_bytes(duration_seconds: int = 1) -> bytes:
     return riff_header + fmt_header + data_header
 
 
+def test_audio_metadata_service_extraction():
+    wav_bytes = create_dummy_wav_bytes(2)
+    meta = AudioMetadataService.extract_metadata(wav_bytes)
+    assert isinstance(meta, AudioMetadata)
+    assert len(meta.file_hash) == 64
+    assert meta.sample_rate == 16000
+    assert meta.channels == 1
+    assert meta.duration == 2.0
+
+
+
 @pytest.mark.asyncio
 async def test_upload_and_detect_synthetic_voice(client: AsyncClient):
     wav_content = create_dummy_wav_bytes(1)
@@ -33,6 +45,7 @@ async def test_upload_and_detect_synthetic_voice(client: AsyncClient):
     
     data = response.json()
     assert "id" in data
+    assert data["engine_type"] == "mock"
     assert data["prediction"] == "synthetic"
     assert data["risk_level"] == "high"
     assert data["confidence"] >= 0.9
@@ -50,6 +63,7 @@ async def test_upload_and_detect_real_voice(client: AsyncClient):
     assert response.status_code == 201
     
     data = response.json()
+    assert data["engine_type"] == "mock"
     assert data["prediction"] == "real"
     assert data["risk_level"] == "low"
     assert data["confidence"] >= 0.85
@@ -91,7 +105,10 @@ async def test_get_detections_history_and_detail(client: AsyncClient):
     case_id = case_item["id"]
     assert case_item["filename"] == "test_recording_01.wav"
     assert case_item["status"] == "COMPLETED"
+    assert case_item["sample_rate"] == 16000
+    assert case_item["channels"] == 1
     assert case_item["result"] is not None
+    assert case_item["result"]["engine_type"] == "mock"
 
     # 3. Get detail by case_id
     detail_res = await client.get(f"/api/v1/detections/{case_id}")
@@ -99,8 +116,13 @@ async def test_get_detections_history_and_detail(client: AsyncClient):
     detail_data = detail_res.json()
     assert detail_data["id"] == case_id
     assert detail_data["filename"] == "test_recording_01.wav"
+    assert detail_data["file_hash"] is not None
+    assert len(detail_data["file_hash"]) == 64  # SHA-256 hex string
+    assert detail_data["sample_rate"] == 16000
+    assert detail_data["channels"] == 1
     assert "audio_url" in detail_data
     assert detail_data["result"]["id"] == created_result["id"]
+    assert detail_data["result"]["engine_type"] == "mock"
 
     # 4. Stream audio
     audio_res = await client.get(f"/api/v1/detections/{case_id}/audio")

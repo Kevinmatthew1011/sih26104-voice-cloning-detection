@@ -71,6 +71,7 @@ class BaselineMLDetectionService(BaseDetectionService):
             risk_level_str = inference_result["risk_level"]
 
             return DetectionResultDTO(
+                engine_type="baseline",
                 prediction=PredictionEnum(prediction_str),
                 confidence=inference_result["confidence"],  # Model probability estimate
                 risk_level=RiskLevelEnum(risk_level_str),

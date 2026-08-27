@@ -2,9 +2,11 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Set, Tuple, Optional, Any
+from typing import List, Dict, Set, Tuple, Optional, Any, Union
 import numpy as np
 from sklearn.model_selection import GroupShuffleSplit
+from app.ml.preprocessing import AudioPreprocessor
+from app.ml.features import AudioFeatureExtractor
 
 # Supported audio file formats
 SUPPORTED_AUDIO_EXTENSIONS: Set[str] = {
@@ -21,6 +23,296 @@ SUPPORTED_AUDIO_EXTENSIONS: Set[str] = {
 class DatasetValidationError(ValueError):
     """Raised when a dataset fails integrity, structure, or leakage validation checks."""
     pass
+
+
+@dataclass
+class ASVspoofSample:
+    speaker_id: str
+    audio_id: str
+    attack_id: str
+    original_label: str
+    label: str
+    class_id: int
+    audio_path: Path
+
+
+@dataclass
+class ASVspoofFeatures:
+    """
+    Container for extracted 88-D ASVspoof feature matrices and sample metadata.
+    """
+    X: np.ndarray             # shape (N, 88), float32
+    y: np.ndarray             # shape (N,), int32
+    speaker_ids: List[str]    # length N
+    audio_ids: List[str]      # length N
+    attack_ids: List[str]     # length N
+
+    def __post_init__(self):
+        self.X = np.asarray(self.X, dtype=np.float32)
+        self.y = np.asarray(self.y, dtype=np.int32)
+        
+        if self.X.ndim != 2 or self.X.shape[1] != 88:
+            raise DatasetValidationError(
+                f"Feature matrix X must have shape (N, 88), got {self.X.shape}"
+            )
+        if self.y.ndim != 1 or len(self.y) != self.X.shape[0]:
+            raise DatasetValidationError(
+                f"Label vector y length ({len(self.y)}) must match X sample count ({self.X.shape[0]})"
+            )
+        if len(self.y) > 0 and not np.all(np.isin(self.y, [0, 1])):
+            raise DatasetValidationError(
+                "Label vector y must only contain class IDs 0 (real) or 1 (synthetic)"
+            )
+        if not np.isfinite(self.X).all():
+            raise DatasetValidationError(
+                "Feature matrix X contains non-finite values (NaN or Inf)"
+            )
+        if (
+            len(self.speaker_ids) != len(self.y)
+            or len(self.audio_ids) != len(self.y)
+            or len(self.attack_ids) != len(self.y)
+        ):
+            raise DatasetValidationError(
+                f"Metadata lengths mismatch: y={len(self.y)}, speaker_ids={len(self.speaker_ids)}, "
+                f"audio_ids={len(self.audio_ids)}, attack_ids={len(self.attack_ids)}"
+            )
+
+    @property
+    def num_samples(self) -> int:
+        return len(self.y)
+
+    def __len__(self) -> int:
+        return len(self.y)
+
+    def save_cache(self, cache_path: Union[Path, str]) -> Path:
+        """Save features and metadata to a compressed .npz file."""
+        return save_asvspoof_feature_cache(cache_path, self)
+
+    @classmethod
+    def load_cache(cls, cache_path: Union[Path, str]) -> "ASVspoofFeatures":
+        """Load features and metadata from a compressed .npz file."""
+        return load_asvspoof_feature_cache(cache_path)
+
+
+def extract_asvspoof_features(
+    samples: List[ASVspoofSample],
+    preprocessor: Optional[AudioPreprocessor] = None,
+    extractor: Optional[AudioFeatureExtractor] = None,
+) -> ASVspoofFeatures:
+    """
+    Extracts 88-D feature vectors from a list of ASVspoofSample objects.
+    """
+    p = preprocessor or AudioPreprocessor()
+    e = extractor or AudioFeatureExtractor()
+
+    if not samples:
+        return ASVspoofFeatures(
+            X=np.empty((0, 88), dtype=np.float32),
+            y=np.empty((0,), dtype=np.int32),
+            speaker_ids=[],
+            audio_ids=[],
+            attack_ids=[],
+        )
+
+    features_list: List[np.ndarray] = []
+    labels_list: List[int] = []
+    speaker_ids: List[str] = []
+    audio_ids: List[str] = []
+    attack_ids: List[str] = []
+
+    for s in samples:
+        y_audio = p.process(s.audio_path)
+        feat = e.extract_features(y_audio)
+        if feat.shape != (88,):
+            raise DatasetValidationError(
+                f"Feature extractor returned shape {feat.shape}, expected (88,) for '{s.audio_path}'"
+            )
+        if not np.isfinite(feat).all():
+            raise DatasetValidationError(
+                f"Extracted feature vector for '{s.audio_path}' contains non-finite values"
+            )
+        features_list.append(feat)
+        labels_list.append(s.class_id)
+        speaker_ids.append(s.speaker_id)
+        audio_ids.append(s.audio_id)
+        attack_ids.append(s.attack_id)
+
+    X = np.array(features_list, dtype=np.float32)
+    y = np.array(labels_list, dtype=np.int32)
+
+    return ASVspoofFeatures(
+        X=X,
+        y=y,
+        speaker_ids=speaker_ids,
+        audio_ids=audio_ids,
+        attack_ids=attack_ids,
+    )
+
+
+def save_asvspoof_feature_cache(
+    cache_path: Union[Path, str],
+    features: ASVspoofFeatures,
+) -> Path:
+    """
+    Saves ASVspoofFeatures into a compressed .npz archive.
+    """
+    out_path = Path(cache_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        out_path,
+        X=features.X,
+        y=features.y,
+        speaker_ids=np.array(features.speaker_ids, dtype=object),
+        audio_ids=np.array(features.audio_ids, dtype=object),
+        attack_ids=np.array(features.attack_ids, dtype=object),
+    )
+    return out_path
+
+
+def load_asvspoof_feature_cache(
+    cache_path: Union[Path, str],
+) -> ASVspoofFeatures:
+    """
+    Loads ASVspoofFeatures from a compressed .npz archive.
+    """
+    path = Path(cache_path)
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(f"Feature cache file not found: '{path.resolve()}'")
+
+    with np.load(path, allow_pickle=True) as data:
+        required_keys = {"X", "y", "speaker_ids", "audio_ids", "attack_ids"}
+        missing_keys = required_keys - set(data.files)
+        if missing_keys:
+            raise DatasetValidationError(
+                f"Corrupted cache file '{path}': missing keys {missing_keys}"
+            )
+
+        X = np.asarray(data["X"], dtype=np.float32)
+        y = np.asarray(data["y"], dtype=np.int32)
+        speaker_ids = [str(s) for s in data["speaker_ids"]]
+        audio_ids = [str(a) for a in data["audio_ids"]]
+        attack_ids = [str(att) for att in data["attack_ids"]]
+
+    return ASVspoofFeatures(
+        X=X,
+        y=y,
+        speaker_ids=speaker_ids,
+        audio_ids=audio_ids,
+        attack_ids=attack_ids,
+    )
+
+
+def load_or_extract_asvspoof_features(
+    samples: List[ASVspoofSample],
+    cache_path: Optional[Union[Path, str]] = None,
+    force_recompute: bool = False,
+    preprocessor: Optional[AudioPreprocessor] = None,
+    extractor: Optional[AudioFeatureExtractor] = None,
+) -> ASVspoofFeatures:
+    """
+    Loads features from local .npz cache if available, or extracts them from samples
+    and saves to cache.
+    """
+    if cache_path and not force_recompute:
+        p = Path(cache_path)
+        if p.exists() and p.is_file():
+            return load_asvspoof_feature_cache(p)
+
+    features = extract_asvspoof_features(
+        samples=samples,
+        preprocessor=preprocessor,
+        extractor=extractor,
+    )
+
+    if cache_path:
+        save_asvspoof_feature_cache(cache_path, features)
+
+    return features
+
+
+def load_asvspoof_protocol(
+    protocol_path: Union[Path, str],
+    audio_dir: Union[Path, str],
+) -> List[ASVspoofSample]:
+    """
+    Parses and validates an official ASVspoof 2019 Logical Access protocol file.
+    
+    Protocol format (5 whitespace-separated columns):
+        speaker_id audio_id environment attack_id label
+    
+    Mapping:
+        bonafide -> real -> class 0
+        spoof -> synthetic -> class 1
+        
+    Audio path convention:
+        audio_dir / f"{audio_id}.flac"
+        
+    Raises:
+        DatasetValidationError: If protocol file or audio directory is missing,
+                                if any row is malformed, has an unknown label,
+                                or references a nonexistent FLAC file.
+    """
+    protocol_file = Path(protocol_path)
+    audio_directory = Path(audio_dir)
+
+    if not protocol_file.exists() or not protocol_file.is_file():
+        raise DatasetValidationError(
+            f"ASVspoof protocol file does not exist or is not a file: '{protocol_file.resolve()}'"
+        )
+
+    if not audio_directory.exists() or not audio_directory.is_dir():
+        raise DatasetValidationError(
+            f"ASVspoof audio directory does not exist or is not a directory: '{audio_directory.resolve()}'"
+        )
+
+    samples: List[ASVspoofSample] = []
+    with open(protocol_file, "r", encoding="utf-8") as f:
+        for line_num, line in enumerate(f, start=1):
+            line_str = line.strip()
+            if not line_str:
+                continue
+
+            parts = line_str.split()
+            if len(parts) != 5:
+                raise DatasetValidationError(
+                    f"Malformed protocol row at line {line_num} in '{protocol_file}': "
+                    f"expected exactly 5 columns, got {len(parts)} ({line_str!r})"
+                )
+
+            speaker_id, audio_id, _env, attack_id, orig_label = parts
+
+            if orig_label == "bonafide":
+                label = "real"
+                class_id = 0
+            elif orig_label == "spoof":
+                label = "synthetic"
+                class_id = 1
+            else:
+                raise DatasetValidationError(
+                    f"Unknown label '{orig_label}' at line {line_num} in '{protocol_file}'. "
+                    "Expected 'bonafide' or 'spoof'."
+                )
+
+            audio_path = audio_directory / f"{audio_id}.flac"
+            if not audio_path.exists() or not audio_path.is_file():
+                raise DatasetValidationError(
+                    f"Referenced audio file does not exist: '{audio_path}' (line {line_num})"
+                )
+
+            samples.append(
+                ASVspoofSample(
+                    speaker_id=speaker_id,
+                    audio_id=audio_id,
+                    attack_id=attack_id,
+                    original_label=orig_label,
+                    label=label,
+                    class_id=class_id,
+                    audio_path=audio_path,
+                )
+            )
+
+    return samples
 
 
 @dataclass

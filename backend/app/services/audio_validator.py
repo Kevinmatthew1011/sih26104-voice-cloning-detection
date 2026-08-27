@@ -37,10 +37,10 @@ class AudioValidator:
         return ext
 
     @staticmethod
-    async def validate_file_content(file: UploadFile) -> Tuple[bytes, str, int, Optional[float]]:
+    async def validate_file_content(file: UploadFile) -> Tuple[bytes, str, int]:
         """
-        Validates the audio payload for size, header magic bytes, and estimates duration if wav.
-        Returns: (content_bytes, mime_type, file_size_bytes, estimated_duration)
+        Validates the audio payload for size, emptiness, and content type.
+        Returns: (content_bytes, mime_type, file_size_bytes)
         """
         # Read content
         content = await file.read()
@@ -65,23 +65,5 @@ class AudioValidator:
         # Check MIME type
         content_type = file.content_type or "application/octet-stream"
         
-        # Estimate duration for WAV files if valid RIFF header
-        duration: Optional[float] = None
-        if content.startswith(b"RIFF") and len(content) > 44:
-            try:
-                # Basic WAV PCM header parsing
-                # Byte 24-27: Sample Rate, Byte 28-31: Byte Rate
-                byte_rate = struct.unpack("<I", content[28:32])[0]
-                if byte_rate > 0:
-                    data_size = file_size - 44
-                    duration = round(data_size / byte_rate, 2)
-            except Exception:
-                duration = None
+        return content, content_type, file_size
 
-        if duration is None:
-            # Fallback approximate estimation based on typical 128kbps audio stream
-            duration = round(file_size / 16000.0, 2)
-            if duration < 0.5:
-                duration = 1.0
-
-        return content, content_type, file_size, duration

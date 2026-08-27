@@ -6,9 +6,16 @@ import pytest
 import numpy as np
 
 from app.ml.dataset import (
+    ASVspoofSample,
+    ASVspoofFeatures,
     DatasetValidator,
     DatasetValidationError,
     calculate_file_hash,
+    load_asvspoof_protocol,
+    extract_asvspoof_features,
+    save_asvspoof_feature_cache,
+    load_asvspoof_feature_cache,
+    load_or_extract_asvspoof_features,
     speaker_independent_split,
     extract_speaker_id_from_path,
 )
@@ -276,3 +283,278 @@ def test_reproducible_split_with_seed():
     np.testing.assert_array_equal(res1[1], res2[1])
     assert res1[4] == res2[4]  # train_spks
     assert res1[5] == res2[5]  # test_spks
+
+
+# ==========================================================
+# 6. ASVspoof 2019 Protocol Loader Tests
+# ==========================================================
+
+def test_asvspoof_protocol_bonafide_mapping(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    (audio_dir / "LA_T_1138215.flac").write_bytes(b"dummy_flac_content")
+
+    protocol_file = tmp_path / "protocol.txt"
+    protocol_file.write_text("LA_0079 LA_T_1138215 - - bonafide\n", encoding="utf-8")
+
+    samples = load_asvspoof_protocol(protocol_file, audio_dir)
+
+    assert len(samples) == 1
+    sample = samples[0]
+    assert isinstance(sample, ASVspoofSample)
+    assert sample.speaker_id == "LA_0079"
+    assert sample.audio_id == "LA_T_1138215"
+    assert sample.attack_id == "-"
+    assert sample.original_label == "bonafide"
+    assert sample.label == "real"
+    assert sample.class_id == 0
+    assert sample.audio_path == audio_dir / "LA_T_1138215.flac"
+
+
+def test_asvspoof_protocol_spoof_mapping(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    (audio_dir / "LA_T_1004644.flac").write_bytes(b"dummy_flac_content")
+
+    protocol_file = tmp_path / "protocol.txt"
+    protocol_file.write_text("LA_0079 LA_T_1004644 - A01 spoof\n", encoding="utf-8")
+
+    samples = load_asvspoof_protocol(protocol_file, audio_dir)
+
+    assert len(samples) == 1
+    sample = samples[0]
+    assert isinstance(sample, ASVspoofSample)
+    assert sample.speaker_id == "LA_0079"
+    assert sample.audio_id == "LA_T_1004644"
+    assert sample.attack_id == "A01"
+    assert sample.original_label == "spoof"
+    assert sample.label == "synthetic"
+    assert sample.class_id == 1
+    assert sample.audio_path == audio_dir / "LA_T_1004644.flac"
+
+
+def test_asvspoof_protocol_malformed_row(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    (audio_dir / "LA_T_1138215.flac").write_bytes(b"dummy_flac_content")
+
+    # Only 4 columns instead of 5
+    protocol_file = tmp_path / "protocol_malformed.txt"
+    protocol_file.write_text("LA_0079 LA_T_1138215 - bonafide\n", encoding="utf-8")
+
+    with pytest.raises(DatasetValidationError, match="Malformed protocol row.*expected exactly 5 columns"):
+        load_asvspoof_protocol(protocol_file, audio_dir)
+
+
+def test_asvspoof_protocol_unknown_label(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    (audio_dir / "LA_T_1138215.flac").write_bytes(b"dummy_flac_content")
+
+    # Invalid label 'fake' instead of 'bonafide' or 'spoof'
+    protocol_file = tmp_path / "protocol_unknown_label.txt"
+    protocol_file.write_text("LA_0079 LA_T_1138215 - - fake\n", encoding="utf-8")
+
+    with pytest.raises(DatasetValidationError, match="Unknown label 'fake'"):
+        load_asvspoof_protocol(protocol_file, audio_dir)
+
+
+def test_asvspoof_protocol_missing_audio_file(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    # Notice: we do NOT create LA_T_1138215.flac in audio_dir
+
+    protocol_file = tmp_path / "protocol_missing_flac.txt"
+    protocol_file.write_text("LA_0079 LA_T_1138215 - - bonafide\n", encoding="utf-8")
+
+    with pytest.raises(DatasetValidationError, match="Referenced audio file does not exist"):
+        load_asvspoof_protocol(protocol_file, audio_dir)
+
+
+def test_asvspoof_protocol_missing_files_and_directories(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    protocol_file = tmp_path / "non_existent_protocol.txt"
+
+    with pytest.raises(DatasetValidationError, match="ASVspoof protocol file does not exist"):
+        load_asvspoof_protocol(protocol_file, audio_dir)
+
+    protocol_file.write_text("LA_0079 LA_T_1138215 - - bonafide\n", encoding="utf-8")
+    with pytest.raises(DatasetValidationError, match="ASVspoof audio directory does not exist"):
+        load_asvspoof_protocol(protocol_file, audio_dir)
+
+
+# ==========================================================
+# 7. ASVspoof Feature Extraction & Caching Tests
+# ==========================================================
+
+def test_extract_asvspoof_features(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    f1 = create_dummy_wav_file(audio_dir / "LA_T_001.flac", freq=300)
+    f2 = create_dummy_wav_file(audio_dir / "LA_T_002.flac", freq=500)
+
+    samples = [
+        ASVspoofSample(
+            speaker_id="LA_0001",
+            audio_id="LA_T_001",
+            attack_id="-",
+            original_label="bonafide",
+            label="real",
+            class_id=0,
+            audio_path=f1,
+        ),
+        ASVspoofSample(
+            speaker_id="LA_0002",
+            audio_id="LA_T_002",
+            attack_id="A01",
+            original_label="spoof",
+            label="synthetic",
+            class_id=1,
+            audio_path=f2,
+        ),
+    ]
+
+    features = extract_asvspoof_features(samples)
+
+    assert isinstance(features, ASVspoofFeatures)
+    assert features.X.shape == (2, 88)
+    assert features.y.shape == (2,)
+    assert features.X.dtype == np.float32
+    assert features.y.dtype == np.int32
+    np.testing.assert_array_equal(features.y, np.array([0, 1]))
+    assert np.isfinite(features.X).all()
+    assert features.speaker_ids == ["LA_0001", "LA_0002"]
+    assert features.audio_ids == ["LA_T_001", "LA_T_002"]
+    assert features.attack_ids == ["-", "A01"]
+    assert len(features) == 2
+    assert features.num_samples == 2
+
+
+def test_asvspoof_features_empty_samples():
+    features = extract_asvspoof_features([])
+    assert features.X.shape == (0, 88)
+    assert features.y.shape == (0,)
+    assert len(features) == 0
+    assert features.speaker_ids == []
+    assert features.audio_ids == []
+    assert features.attack_ids == []
+
+
+def test_asvspoof_feature_caching_save_and_load(tmp_path: Path):
+    X = np.random.randn(5, 88).astype(np.float32)
+    y = np.array([0, 0, 1, 1, 0], dtype=np.int32)
+    spks = [f"LA_000{i}" for i in range(5)]
+    audios = [f"LA_T_00{i}" for i in range(5)]
+    attacks = ["-", "-", "A01", "A02", "-"]
+
+    feat = ASVspoofFeatures(
+        X=X,
+        y=y,
+        speaker_ids=spks,
+        audio_ids=audios,
+        attack_ids=attacks,
+    )
+
+    cache_file = tmp_path / "subdir" / "test_features.npz"
+    feat.save_cache(cache_file)
+    assert cache_file.exists()
+
+    loaded = ASVspoofFeatures.load_cache(cache_file)
+    np.testing.assert_array_almost_equal(loaded.X, X, decimal=5)
+    np.testing.assert_array_equal(loaded.y, y)
+    assert loaded.speaker_ids == spks
+    assert loaded.audio_ids == audios
+    assert loaded.attack_ids == attacks
+
+
+def test_load_or_extract_asvspoof_features_uses_cache(tmp_path: Path):
+    audio_dir = tmp_path / "flac"
+    audio_dir.mkdir()
+    f1 = create_dummy_wav_file(audio_dir / "LA_T_001.flac", freq=300)
+
+    samples = [
+        ASVspoofSample(
+            speaker_id="LA_0001",
+            audio_id="LA_T_001",
+            attack_id="-",
+            original_label="bonafide",
+            label="real",
+            class_id=0,
+            audio_path=f1,
+        )
+    ]
+
+    cache_file = tmp_path / "cached_feat.npz"
+    
+    # 1. First run: extracts and writes cache
+    res1 = load_or_extract_asvspoof_features(samples, cache_path=cache_file)
+    assert cache_file.exists()
+    assert res1.X.shape == (1, 88)
+
+    # 2. Delete audio file to prove second run loads from cache without touching audio
+    f1.unlink()
+    assert not f1.exists()
+
+    res2 = load_or_extract_asvspoof_features(samples, cache_path=cache_file)
+    np.testing.assert_array_almost_equal(res1.X, res2.X)
+    np.testing.assert_array_equal(res1.y, res2.y)
+
+    # 3. Force recompute should fail now because audio file was deleted
+    with pytest.raises(ValueError, match="Audio file not found"):
+        load_or_extract_asvspoof_features(samples, cache_path=cache_file, force_recompute=True)
+
+
+def test_asvspoof_features_validation_errors(tmp_path: Path):
+    # Wrong feature dimension (50 != 88)
+    with pytest.raises(DatasetValidationError, match="Feature matrix X must have shape \\(N, 88\\)"):
+        ASVspoofFeatures(
+            X=np.random.randn(2, 50).astype(np.float32),
+            y=np.array([0, 1], dtype=np.int32),
+            speaker_ids=["s1", "s2"],
+            audio_ids=["a1", "a2"],
+            attack_ids=["-", "A01"],
+        )
+
+    # Length mismatch between X and y
+    with pytest.raises(DatasetValidationError, match="Label vector y length .* must match X sample count"):
+        ASVspoofFeatures(
+            X=np.random.randn(3, 88).astype(np.float32),
+            y=np.array([0, 1], dtype=np.int32),
+            speaker_ids=["s1", "s2"],
+            audio_ids=["a1", "a2"],
+            attack_ids=["-", "A01"],
+        )
+
+    # Non-finite values
+    bad_X = np.random.randn(2, 88).astype(np.float32)
+    bad_X[0, 5] = np.nan
+    with pytest.raises(DatasetValidationError, match="contains non-finite values"):
+        ASVspoofFeatures(
+            X=bad_X,
+            y=np.array([0, 1], dtype=np.int32),
+            speaker_ids=["s1", "s2"],
+            audio_ids=["a1", "a2"],
+            attack_ids=["-", "A01"],
+        )
+
+    # Invalid class ID (e.g. 2)
+    with pytest.raises(DatasetValidationError, match="Label vector y must only contain class IDs 0"):
+        ASVspoofFeatures(
+            X=np.random.randn(2, 88).astype(np.float32),
+            y=np.array([0, 2], dtype=np.int32),
+            speaker_ids=["s1", "s2"],
+            audio_ids=["a1", "a2"],
+            attack_ids=["-", "A01"],
+        )
+
+    # Missing cache file
+    with pytest.raises(FileNotFoundError, match="Feature cache file not found"):
+        load_asvspoof_feature_cache(tmp_path / "non_existent.npz")
+
+    # Corrupted cache (missing keys)
+    corrupted_file = tmp_path / "corrupted.npz"
+    np.savez(corrupted_file, X=np.zeros((2, 88), dtype=np.float32), y=np.array([0, 1]))
+    with pytest.raises(DatasetValidationError, match="Corrupted cache file.*missing keys"):
+        load_asvspoof_feature_cache(corrupted_file)
+
+
