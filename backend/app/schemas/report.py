@@ -28,6 +28,9 @@ class ReportAudioEvidence(BaseModel):
     audio_quality: Optional[Dict[str, Any]] = None
     analysis_reliability: Optional[str] = None
     quality_flags: Optional[List[str]] = None
+    input_source: Optional[str] = "uploaded_file"
+    capture_domain: Optional[str] = "file_audio"
+    capture_domain_reliability: Optional[str] = "validated"
 
 
 class ReportModelEvidence(BaseModel):

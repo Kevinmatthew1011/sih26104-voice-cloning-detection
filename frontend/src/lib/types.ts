@@ -3,6 +3,9 @@ export type RiskLevelType = 'low' | 'medium' | 'high' | 'not_assessed';
 export type CaseStatusType = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 export type ActionType = 'ALLOW' | 'VERIFY' | 'BLOCK' | 'NOT_EVALUATED';
 export type ReliabilityType = 'reliable' | 'degraded' | 'insufficient_speech';
+export type InputSourceType = 'uploaded_file' | 'browser_microphone';
+export type CaptureDomainType = 'file_audio' | 'browser_microphone';
+export type CaptureDomainReliabilityType = 'validated' | 'unvalidated';
 
 export interface AudioQuality {
   native_sample_rate_hz: number;
@@ -25,6 +28,9 @@ export interface SecurityDecision {
   raw_ml_action?: ActionType | null;
   final_operational_action?: ActionType | null;
   analysis_reliability?: ReliabilityType | null;
+  input_source?: InputSourceType | null;
+  capture_domain?: CaptureDomainType | null;
+  capture_domain_reliability?: CaptureDomainReliabilityType | null;
   quality_flags?: string[];
   reason_codes: string[];
   recommended_steps: string[];
@@ -48,6 +54,9 @@ export interface DetectionResult {
   final_operational_action?: ActionType | null;
   analysis_status?: string | null;
   analysis_reliability?: ReliabilityType | null;
+  input_source?: InputSourceType | null;
+  capture_domain?: CaptureDomainType | null;
+  capture_domain_reliability?: CaptureDomainReliabilityType | null;
   quality_flags?: string[];
   audio_quality?: AudioQuality | null;
   decision_message?: string | null;
@@ -123,6 +132,9 @@ export interface ReportAudioEvidence {
   file_sha256?: string | null;
   audio_quality?: AudioQuality | null;
   analysis_reliability?: ReliabilityType | null;
+  input_source?: InputSourceType | null;
+  capture_domain?: CaptureDomainType | null;
+  capture_domain_reliability?: CaptureDomainReliabilityType | null;
   quality_flags?: string[] | null;
 }
 

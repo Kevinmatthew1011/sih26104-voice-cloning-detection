@@ -39,6 +39,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [inputSource, setInputSource] = useState<'uploaded_file' | 'browser_microphone'>('uploaded_file');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [pipelineStage, setPipelineStage] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
     };
   }, []);
 
-  const validateAndSetFile = (file: File) => {
+  const validateAndSetFile = (file: File, source: 'uploaded_file' | 'browser_microphone' = 'uploaded_file') => {
     setErrorMessage(null);
     setResult(null);
 
@@ -75,6 +76,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
     }
 
     setSelectedFile(file);
+    setInputSource(source);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -90,13 +92,13 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      validateAndSetFile(e.dataTransfer.files[0]);
+      validateAndSetFile(e.dataTransfer.files[0], 'uploaded_file');
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      validateAndSetFile(e.target.files[0]);
+      validateAndSetFile(e.target.files[0], 'uploaded_file');
     }
   };
 
@@ -106,6 +108,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
       setErrorMessage(null);
       setResult(null);
       setSelectedFile(null);
+      setInputSource('browser_microphone');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
@@ -163,7 +166,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           `mic_sample_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}${ext}`,
           { type: actualMime }
         );
-        validateAndSetFile(recordedFile);
+        validateAndSetFile(recordedFile, 'browser_microphone');
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -202,7 +205,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
     }, 400);
 
     try {
-      const data = await api.uploadAndDetect(selectedFile);
+      const data = await api.uploadAndDetect(selectedFile, inputSource);
       setResult(data);
       if (onDetectionComplete) {
         onDetectionComplete(data);
@@ -390,8 +393,20 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
                   size="md"
                 />
                 {result.action && <ThreatBadge action={result.action} size="md" />}
+                {(result.input_source || result.decision?.input_source) && (
+                  <ThreatBadge
+                    inputSource={result.input_source || result.decision?.input_source || undefined}
+                    captureDomainReliability={result.capture_domain_reliability || result.decision?.capture_domain_reliability || undefined}
+                    size="md"
+                  />
+                )}
                 {(result.analysis_reliability || result.decision?.analysis_reliability || result.audio_quality?.analysis_reliability) && (
-                  <ThreatBadge reliability={result.analysis_reliability || result.decision?.analysis_reliability || result.audio_quality?.analysis_reliability} size="md" />
+                  <ThreatBadge
+                    reliability={result.analysis_reliability || result.decision?.analysis_reliability || result.audio_quality?.analysis_reliability}
+                    inputSource={result.input_source || result.decision?.input_source || undefined}
+                    captureDomainReliability={result.capture_domain_reliability || result.decision?.capture_domain_reliability || undefined}
+                    size="md"
+                  />
                 )}
               </div>
             </div>

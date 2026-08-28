@@ -40,9 +40,13 @@ class ApiClient {
     }
   }
 
-  async uploadAndDetect(file: File): Promise<DetectionResult> {
+  async uploadAndDetect(
+    file: File,
+    inputSource: 'uploaded_file' | 'browser_microphone' = 'uploaded_file'
+  ): Promise<DetectionResult> {
     const formData = new FormData();
     formData.append('file', file, file.name);
+    formData.append('input_source', inputSource);
 
     const res = await fetch(`${this.baseUrl}/api/v1/detections`, {
       method: 'POST',

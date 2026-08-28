@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 from pathlib import Path
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
@@ -18,6 +18,9 @@ from app.schemas.detection import (
     PredictionEnum,
     RiskLevelEnum,
     ActionEnum,
+    InputSourceEnum,
+    CaptureDomainEnum,
+    CaptureDomainReliabilityEnum,
     SecurityDecisionDTO,
 )
 from app.schemas.report import DetectionEvidenceReportResponse
@@ -52,6 +55,9 @@ def build_detection_result_response(result: DetectionResult) -> DetectionResultR
     analysis_rel = meta.get("analysis_reliability")
     q_flags = meta.get("quality_flags", [])
     audio_qual = meta.get("audio_quality")
+    input_source_res = meta.get("input_source")
+    capture_domain_res = meta.get("capture_domain")
+    capture_domain_rel_res = meta.get("capture_domain_reliability")
 
     if decision_data and isinstance(decision_data, dict):
         try:
@@ -64,6 +70,12 @@ def build_detection_result_response(result: DetectionResult) -> DetectionResultR
                 analysis_rel = decision_dto.analysis_reliability
             if not q_flags and decision_dto.quality_flags:
                 q_flags = decision_dto.quality_flags
+            if not input_source_res and decision_dto.input_source:
+                input_source_res = decision_dto.input_source
+            if not capture_domain_res and decision_dto.capture_domain:
+                capture_domain_res = decision_dto.capture_domain
+            if not capture_domain_rel_res and decision_dto.capture_domain_reliability:
+                capture_domain_rel_res = decision_dto.capture_domain_reliability
         except Exception:
             decision_dto = None
 
@@ -85,11 +97,15 @@ def build_detection_result_response(result: DetectionResult) -> DetectionResultR
         final_operational_action=final_op_action,
         analysis_status=analysis_status,
         analysis_reliability=analysis_rel,
+        input_source=input_source_res or "uploaded_file",
+        capture_domain=capture_domain_res or "file_audio",
+        capture_domain_reliability=capture_domain_rel_res or "validated",
         quality_flags=q_flags,
         audio_quality=audio_qual,
         decision_message=decision_msg,
         decision=decision_dto,
     )
+
 
 router = APIRouter()
 
@@ -103,6 +119,10 @@ router = APIRouter()
 )
 async def create_detection(
     file: UploadFile = File(..., description="Audio file to analyze for synthetic voice cloning"),
+    input_source: Optional[InputSourceEnum] = Form(
+        default=InputSourceEnum.UPLOADED_FILE,
+        description="Origin provenance of the audio input: 'uploaded_file' or 'browser_microphone'",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -173,6 +193,10 @@ async def create_detection(
         analysis_rel = dto.metadata_json.get("analysis_reliability", "reliable") if dto.metadata_json else "reliable"
         q_flags = dto.metadata_json.get("quality_flags", []) if dto.metadata_json else []
 
+        input_source_val = input_source.value if isinstance(input_source, InputSourceEnum) else (str(input_source) if input_source else "uploaded_file")
+        if input_source_val not in [e.value for e in InputSourceEnum]:
+            input_source_val = "uploaded_file"
+
         decision = SecurityDecisionEngine.evaluate(
             prediction=dto.prediction.value,
             synthetic_probability=synth_prob,
@@ -181,9 +205,13 @@ async def create_detection(
             extra_telemetry=dto.metadata_json,
             analysis_reliability=analysis_rel,
             quality_flags=q_flags,
+            input_source=input_source_val,
         )
 
         meta_payload = dict(dto.metadata_json or {})
+        meta_payload["input_source"] = input_source_val
+        meta_payload["capture_domain"] = decision.capture_domain
+        meta_payload["capture_domain_reliability"] = decision.capture_domain_reliability
         meta_payload["decision"] = decision.model_dump()
         meta_payload["synthetic_probability"] = synth_prob
         meta_payload["analysis_status"] = dto.metadata_json.get("analysis_status", "completed") if dto.metadata_json else "completed"

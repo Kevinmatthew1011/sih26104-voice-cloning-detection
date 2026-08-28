@@ -190,6 +190,22 @@ class AuditReportBuilder:
             )
 
         # 3. Audio Forensics Evidence
+        input_source = None
+        capture_domain = None
+        capture_domain_rel = None
+        if res:
+            meta = res.metadata_json or {}
+            input_source = meta.get("input_source")
+            capture_domain = meta.get("capture_domain")
+            capture_domain_rel = meta.get("capture_domain_reliability")
+            if security_decision:
+                if not input_source and security_decision.input_source:
+                    input_source = security_decision.input_source
+                if not capture_domain and security_decision.capture_domain:
+                    capture_domain = security_decision.capture_domain
+                if not capture_domain_rel and security_decision.capture_domain_reliability:
+                    capture_domain_rel = security_decision.capture_domain_reliability
+
         audio_evidence = ReportAudioEvidence(
             file_size_bytes=case.file_size_bytes,
             mime_type=case.mime_type,
@@ -200,12 +216,16 @@ class AuditReportBuilder:
             audio_quality=audio_quality,
             analysis_reliability=analysis_rel,
             quality_flags=q_flags,
+            input_source=input_source or "uploaded_file",
+            capture_domain=capture_domain or "file_audio",
+            capture_domain_reliability=capture_domain_rel or "validated",
         )
 
         limitations = [
             "This report is a machine-generated automated security assessment and audit evidence summary.",
             "Probability scores represent uncalibrated model estimates and do not reflect definitive biometric identification.",
             "Performance may vary under domain shift, acoustic noise, lossy codecs, and unseen attack vectors.",
+            "Browser microphone capture is supported, but the current AASIST checkpoint has not been calibrated across diverse consumer microphone and WebRTC device pipelines. Raw model evidence is preserved; secondary verification is recommended when microphone-domain reliability is uncertain.",
             "This report does not constitute certified legal testimony or definitive judicial attribution.",
         ]
         if q_flags:

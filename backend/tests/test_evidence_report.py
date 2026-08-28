@@ -228,3 +228,57 @@ async def test_report_api_integration_on_created_case(client: AsyncClient):
     assert "security_decision" in report
     assert "audit" in report
     assert len(report["limitations"]) > 0
+
+
+def test_browser_microphone_report_provenance_and_limitations():
+    """Verify evidence report reflects unvalidated microphone capture domain and includes domain limitation."""
+    case = DetectionCase(
+        id="case-mic-1",
+        filename="mic_sample_2026-08-28.webm",
+        file_hash="mic123sha",
+        file_size_bytes=48000,
+        mime_type="audio/webm",
+        duration_seconds=3.0,
+        sample_rate=48000,
+        channels=1,
+        status="COMPLETED",
+        created_at=datetime(2026, 8, 28, 2, 0, 0, tzinfo=timezone.utc),
+    )
+    result = DetectionResult(
+        id="res-mic-1",
+        detection_case_id="case-mic-1",
+        engine_type="aasist",
+        prediction="synthetic",
+        confidence=0.99,
+        risk_level="high",
+        model_version="aasist-v1",
+        processing_time_ms=30,
+        created_at=datetime(2026, 8, 28, 2, 0, 1, tzinfo=timezone.utc),
+        metadata_json={
+            "input_source": "browser_microphone",
+            "capture_domain": "browser_microphone",
+            "capture_domain_reliability": "unvalidated",
+            "decision": {
+                "action": "VERIFY",
+                "decision_message": "Strong synthetic indicators were produced on a browser microphone recording. Physical microphone and device processing characteristics may reduce model-domain reliability.",
+                "synthetic_probability": 0.99,
+                "raw_ml_action": "BLOCK",
+                "final_operational_action": "VERIFY",
+                "input_source": "browser_microphone",
+                "capture_domain": "browser_microphone",
+                "capture_domain_reliability": "unvalidated",
+                "policy_version": "v1.0",
+                "reason_codes": ["UNVALIDATED_MICROPHONE_DOMAIN", "HIGH_CONFIDENCE_SYNTHETIC_DETECTED"],
+                "recommended_steps": ["Require out-of-band secondary identity verification."],
+            },
+        },
+    )
+
+    report = AuditReportBuilder.build_report(case, result)
+    assert report.audio_evidence.input_source == "browser_microphone"
+    assert report.audio_evidence.capture_domain == "browser_microphone"
+    assert report.audio_evidence.capture_domain_reliability == "unvalidated"
+    assert report.security_decision.action == ActionEnum.VERIFY
+    assert report.security_decision.raw_ml_action == ActionEnum.BLOCK
+    assert report.security_decision.final_operational_action == ActionEnum.VERIFY
+    assert any("Browser microphone capture is supported" in lim for lim in report.limitations)

@@ -138,3 +138,36 @@ async def test_get_detections_history_and_detail(client: AsyncClient):
     audio_res = await client.get(f"/api/v1/detections/{case_id}/audio")
     assert audio_res.status_code == 200
     assert len(audio_res.content) == len(wav_content)
+
+
+@pytest.mark.asyncio
+async def test_upload_with_browser_microphone_input_source(client: AsyncClient):
+    """Verify endpoint correctly binds and persists input_source='browser_microphone'."""
+    wav_content = create_dummy_wav_bytes(1)
+    files = {"file": ("mic_recording.wav", io.BytesIO(wav_content), "audio/wav")}
+    data = {"input_source": "browser_microphone"}
+
+    response = await client.post("/api/v1/detections", files=files, data=data)
+    assert response.status_code == 201
+    res_data = response.json()
+    assert res_data["input_source"] == "browser_microphone"
+    assert res_data["capture_domain"] == "browser_microphone"
+    assert res_data["capture_domain_reliability"] == "unvalidated"
+    assert res_data["action"] == "VERIFY"
+    assert res_data["decision"]["input_source"] == "browser_microphone"
+    assert res_data["decision"]["capture_domain_reliability"] == "unvalidated"
+
+
+@pytest.mark.asyncio
+async def test_upload_with_uploaded_file_input_source(client: AsyncClient):
+    """Verify endpoint correctly binds and persists input_source='uploaded_file'."""
+    wav_content = create_dummy_wav_bytes(1)
+    files = {"file": ("clean_upload.wav", io.BytesIO(wav_content), "audio/wav")}
+    data = {"input_source": "uploaded_file"}
+
+    response = await client.post("/api/v1/detections", files=files, data=data)
+    assert response.status_code == 201
+    res_data = response.json()
+    assert res_data["input_source"] == "uploaded_file"
+    assert res_data["capture_domain"] == "file_audio"
+    assert res_data["capture_domain_reliability"] == "validated"

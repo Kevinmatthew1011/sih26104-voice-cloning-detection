@@ -148,3 +148,116 @@ def test_build_detection_result_response_legacy_record_remains_null():
     assert resp.action is None
     assert resp.decision_message is None
     assert resp.decision is None
+    assert resp.input_source == "uploaded_file"
+    assert resp.capture_domain == "file_audio"
+    assert resp.capture_domain_reliability == "validated"
+
+
+def test_uploaded_file_domain_policy():
+    """Verify standard uploaded audio with validated capture domain retains nominal ALLOW/BLOCK policy."""
+    # 1. Uploaded reliable + raw ALLOW -> final ALLOW
+    allow_dec = SecurityDecisionEngine.evaluate(
+        prediction="real",
+        synthetic_probability=0.05,
+        risk_level="low",
+        engine_type="aasist",
+        analysis_reliability="reliable",
+        input_source="uploaded_file",
+    )
+    assert allow_dec.raw_ml_action == ActionEnum.ALLOW
+    assert allow_dec.final_operational_action == ActionEnum.ALLOW
+    assert allow_dec.action == ActionEnum.ALLOW
+    assert allow_dec.input_source == "uploaded_file"
+    assert allow_dec.capture_domain == "file_audio"
+    assert allow_dec.capture_domain_reliability == "validated"
+
+    # 2. Uploaded reliable + raw BLOCK -> final BLOCK
+    block_dec = SecurityDecisionEngine.evaluate(
+        prediction="synthetic",
+        synthetic_probability=0.98,
+        risk_level="high",
+        engine_type="aasist",
+        analysis_reliability="reliable",
+        input_source="uploaded_file",
+    )
+    assert block_dec.raw_ml_action == ActionEnum.BLOCK
+    assert block_dec.final_operational_action == ActionEnum.BLOCK
+    assert block_dec.action == ActionEnum.BLOCK
+    assert block_dec.input_source == "uploaded_file"
+    assert block_dec.capture_domain == "file_audio"
+    assert block_dec.capture_domain_reliability == "validated"
+
+
+def test_browser_microphone_domain_shift_policy():
+    """Verify real-world microphone domain-shift hardening: raw ML evidence is preserved, but final action is VERIFY."""
+    # 1. browser_microphone + raw BLOCK -> raw_ml_action=BLOCK, final=VERIFY, P_synth=1.00 untouched
+    mic_block = SecurityDecisionEngine.evaluate(
+        prediction="synthetic",
+        synthetic_probability=1.00,
+        risk_level="high",
+        engine_type="aasist",
+        analysis_reliability="reliable",
+        input_source="browser_microphone",
+    )
+    assert mic_block.synthetic_probability == 1.00
+    assert mic_block.raw_ml_action == ActionEnum.BLOCK
+    assert mic_block.final_operational_action == ActionEnum.VERIFY
+    assert mic_block.action == ActionEnum.VERIFY
+    assert mic_block.input_source == "browser_microphone"
+    assert mic_block.capture_domain == "browser_microphone"
+    assert mic_block.capture_domain_reliability == "unvalidated"
+    assert "UNVALIDATED_MICROPHONE_DOMAIN" in mic_block.reason_codes
+    assert "HIGH_CONFIDENCE_SYNTHETIC_DETECTED" in mic_block.reason_codes
+    assert "Strong synthetic indicators were produced on a browser microphone recording" in mic_block.decision_message
+
+    # 2. browser_microphone + raw VERIFY -> raw_ml_action=VERIFY, final=VERIFY
+    mic_verify = SecurityDecisionEngine.evaluate(
+        prediction="synthetic",
+        synthetic_probability=0.60,
+        risk_level="medium",
+        engine_type="aasist",
+        analysis_reliability="reliable",
+        input_source="browser_microphone",
+    )
+    assert mic_verify.synthetic_probability == 0.60
+    assert mic_verify.raw_ml_action == ActionEnum.VERIFY
+    assert mic_verify.final_operational_action == ActionEnum.VERIFY
+    assert mic_verify.action == ActionEnum.VERIFY
+    assert mic_verify.input_source == "browser_microphone"
+    assert mic_verify.capture_domain == "browser_microphone"
+    assert mic_verify.capture_domain_reliability == "unvalidated"
+
+    # 3. browser_microphone + raw ALLOW -> raw_ml_action=ALLOW, final=VERIFY
+    mic_allow = SecurityDecisionEngine.evaluate(
+        prediction="real",
+        synthetic_probability=0.10,
+        risk_level="low",
+        engine_type="aasist",
+        analysis_reliability="reliable",
+        input_source="browser_microphone",
+    )
+    assert mic_allow.synthetic_probability == 0.10
+    assert mic_allow.raw_ml_action == ActionEnum.ALLOW
+    assert mic_allow.final_operational_action == ActionEnum.VERIFY
+    assert mic_allow.action == ActionEnum.VERIFY
+    assert mic_allow.input_source == "browser_microphone"
+    assert mic_allow.capture_domain == "browser_microphone"
+    assert mic_allow.capture_domain_reliability == "unvalidated"
+
+
+def test_browser_microphone_insufficient_speech():
+    """Verify insufficient speech under microphone capture results in VERIFY with NOT_EVALUATED raw ML action."""
+    mic_insufficient = SecurityDecisionEngine.evaluate(
+        prediction="unknown",
+        synthetic_probability=None,
+        risk_level="low",
+        engine_type="aasist",
+        analysis_reliability="insufficient_speech",
+        quality_flags=["INSUFFICIENT_ACTIVE_SPEECH"],
+        input_source="browser_microphone",
+    )
+    assert mic_insufficient.synthetic_probability is None
+    assert mic_insufficient.raw_ml_action == ActionEnum.NOT_EVALUATED
+    assert mic_insufficient.final_operational_action == ActionEnum.VERIFY
+    assert mic_insufficient.action == ActionEnum.VERIFY
+    assert "INSUFFICIENT_ACTIVE_SPEECH" in mic_insufficient.reason_codes

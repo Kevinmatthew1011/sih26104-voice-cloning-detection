@@ -483,15 +483,28 @@ export default function DetectionDetailPage() {
               {/* Input Quality & Reliability Card */}
               {audioQual && (
                 <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-2 text-xs font-mono">
-                  <div className="flex items-center justify-between pb-1">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Input Quality & Reliability</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      reliability === 'reliable' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
-                      reliability === 'degraded' ? 'bg-amber-950 text-amber-300 border border-amber-700' :
-                      'bg-rose-950 text-rose-300 border border-rose-800'
-                    }`}>
-                      {reliability}
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Signal Quality & Capture Domain</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        (res?.capture_domain_reliability || res?.decision?.capture_domain_reliability) === 'unvalidated' || (res?.input_source || res?.decision?.input_source) === 'browser_microphone'
+                          ? 'bg-amber-950 text-amber-300 border border-amber-700'
+                          : 'bg-blue-950 text-blue-300 border border-blue-800'
+                      }`}>
+                        {(res?.capture_domain_reliability || res?.decision?.capture_domain_reliability) === 'unvalidated' || (res?.input_source || res?.decision?.input_source) === 'browser_microphone'
+                          ? 'Mic Domain: Unvalidated'
+                          : 'Standard File Domain'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        reliability === 'reliable' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                        reliability === 'degraded' ? 'bg-amber-950 text-amber-300 border border-amber-700' :
+                        'bg-rose-950 text-rose-300 border border-rose-800'
+                      }`}>
+                        {((res?.capture_domain_reliability || res?.decision?.capture_domain_reliability) === 'unvalidated' || (res?.input_source || res?.decision?.input_source) === 'browser_microphone') && reliability === 'reliable'
+                          ? 'Signal Quality: Good'
+                          : `Signal Quality: ${reliability}`}
+                      </span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
                     <div className="p-2 rounded bg-slate-900/60 border border-slate-800">
@@ -655,6 +668,22 @@ export default function DetectionDetailPage() {
                 <div className="flex justify-between py-1">
                   <span className="text-slate-400">Sample Rate:</span>
                   <span>{evidenceReport?.audio_evidence?.sample_rate_hz || caseDetail.sample_rate || 16000} Hz</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Input Source:</span>
+                  <span className="font-semibold text-slate-200">{evidenceReport?.audio_evidence?.input_source || res?.input_source || 'uploaded_file'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Capture Domain:</span>
+                  <span className="font-semibold text-slate-200">{evidenceReport?.audio_evidence?.capture_domain || res?.capture_domain || 'file_audio'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Domain Reliability:</span>
+                  <span className={`font-bold ${
+                    (evidenceReport?.audio_evidence?.capture_domain_reliability || res?.capture_domain_reliability) === 'unvalidated' ? 'text-amber-400' : 'text-blue-400'
+                  }`}>
+                    {((evidenceReport?.audio_evidence?.capture_domain_reliability || res?.capture_domain_reliability) || 'validated').toUpperCase()}
+                  </span>
                 </div>
                 {evidenceReport?.audio_evidence?.analysis_reliability && (
                   <div className="flex justify-between py-1">

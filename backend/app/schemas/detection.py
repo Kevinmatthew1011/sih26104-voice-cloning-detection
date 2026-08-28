@@ -31,6 +31,21 @@ class ActionEnum(str, Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
 
 
+class InputSourceEnum(str, Enum):
+    UPLOADED_FILE = "uploaded_file"
+    BROWSER_MICROPHONE = "browser_microphone"
+
+
+class CaptureDomainEnum(str, Enum):
+    FILE_AUDIO = "file_audio"
+    BROWSER_MICROPHONE = "browser_microphone"
+
+
+class CaptureDomainReliabilityEnum(str, Enum):
+    VALIDATED = "validated"
+    UNVALIDATED = "unvalidated"
+
+
 class SecurityDecisionDTO(BaseModel):
     action: ActionEnum
     decision_message: str
@@ -40,6 +55,9 @@ class SecurityDecisionDTO(BaseModel):
     raw_ml_action: Optional[ActionEnum] = None
     final_operational_action: Optional[ActionEnum] = None
     analysis_reliability: Optional[str] = "reliable"
+    input_source: Optional[str] = "uploaded_file"
+    capture_domain: Optional[str] = "file_audio"
+    capture_domain_reliability: Optional[str] = "validated"
     quality_flags: List[str] = Field(default_factory=list)
     reason_codes: List[str] = Field(default_factory=list)
     recommended_steps: List[str] = Field(default_factory=list)
@@ -113,6 +131,9 @@ class DetectionResultDTO(BaseModel):
     audio_quality: Optional[Dict[str, Any]] = None
     decision_message: Optional[str] = None
     decision: Optional[SecurityDecisionDTO] = None
+    input_source: Optional[str] = "uploaded_file"
+    capture_domain: Optional[str] = "file_audio"
+    capture_domain_reliability: Optional[str] = "validated"
 
 
 class DetectionResultResponse(BaseModel):
@@ -136,6 +157,9 @@ class DetectionResultResponse(BaseModel):
     final_operational_action: Optional[ActionEnum] = None
     analysis_status: Optional[str] = "completed"
     analysis_reliability: Optional[str] = "reliable"
+    input_source: Optional[str] = "uploaded_file"
+    capture_domain: Optional[str] = "file_audio"
+    capture_domain_reliability: Optional[str] = "validated"
     quality_flags: List[str] = Field(default_factory=list)
     audio_quality: Optional[Dict[str, Any]] = None
     decision_message: Optional[str] = None
