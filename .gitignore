@@ -100,5 +100,6 @@ tmp/
 temp/
 .cache/
 
-# Raw research datasets - local only
+# Raw research datasets & experiments - local only
 /datasets/
+/experiments/

@@ -1,5 +1,8 @@
 # SIH26104: Dataset & Research-Grade Evaluation Foundation
 
+> [!NOTE]
+> This legacy foundation document is part of the historical baseline documentation. For the full production AASIST and ASVspoof documentation, see [docs/05-ml/asvspoof-dataset.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/05-ml/asvspoof-dataset.md) and the [docs/README.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/README.md) hub.
+
 ## 1. Overview & Provenance Standards
 
 This document establishes the scientific evaluation standards, dataset integrity protocols, and metric calculation methodologies for **SIH 2026 Problem Statement SIH26104: "AI-Powered Real-Time Detection and Prevention of Voice Cloning Impersonation Attacks"**.

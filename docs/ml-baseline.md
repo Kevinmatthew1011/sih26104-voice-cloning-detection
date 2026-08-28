@@ -1,5 +1,8 @@
 # SIH26104: Machine Learning Baseline Pipeline Documentation
 
+> [!NOTE]
+> This document details the Phase 1 Supervised Classical Baseline. For the current production deep learning AASIST architecture, see [docs/05-ml/aasist-architecture.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/05-ml/aasist-architecture.md) and the [docs/README.md](file:///home/kiddo/projects/sih26104-voice-cloning/docs/README.md) hub.
+
 ## 1. Overview & Purpose
 
 This document outlines the **Phase 2 Supervised Machine Learning Baseline** for **SIH 2026 Problem Statement SIH26104: "AI-Powered Real-Time Detection and Prevention of Voice Cloning Impersonation Attacks"**.
