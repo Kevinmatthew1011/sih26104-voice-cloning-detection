@@ -25,33 +25,6 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
   size = 'md',
   className = '',
 }) => {
-  // If capture domain reliability or input source is provided
-  if (captureDomainReliability || inputSource) {
-    if (captureDomainReliability === 'unvalidated' || inputSource === 'browser_microphone') {
-      return (
-        <span
-          className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
-            size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-          } bg-amber-950/40 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
-        >
-          {showIcon && <Mic className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-400'} />}
-          Mic Domain: Unvalidated
-        </span>
-      );
-    } else if (captureDomainReliability === 'validated' || inputSource === 'uploaded_file') {
-      return (
-        <span
-          className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
-            size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-          } bg-blue-950/40 text-blue-300 border-blue-500/30 ${className}`}
-        >
-          {showIcon && <FileAudio className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-blue-400'} />}
-          Standard File Domain
-        </span>
-      );
-    }
-  }
-
   // If reliability rating is provided
   if (reliability) {
     switch (reliability) {
@@ -92,6 +65,33 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
             Insufficient Speech
           </span>
         );
+    }
+  }
+
+  // If capture domain reliability or input source is provided (when reliability is not provided)
+  if (captureDomainReliability || inputSource) {
+    if (captureDomainReliability === 'unvalidated' || inputSource === 'browser_microphone') {
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
+            size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
+          } bg-amber-950/40 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
+        >
+          {showIcon && <Mic className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-400'} />}
+          Mic Domain: Unvalidated
+        </span>
+      );
+    } else if (captureDomainReliability === 'validated' || inputSource === 'uploaded_file') {
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
+            size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
+          } bg-blue-950/40 text-blue-300 border-blue-500/30 ${className}`}
+        >
+          {showIcon && <FileAudio className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-blue-400'} />}
+          Standard File Domain
+        </span>
+      );
     }
   }
 

@@ -181,7 +181,21 @@ export default function DetectionDetailPage() {
                 />
               )}
               {res?.action && <ThreatBadge action={res.action} size="md" />}
-              {reliability && <ThreatBadge reliability={reliability} size="md" />}
+              {(res?.input_source || res?.decision?.input_source) && (
+                <ThreatBadge
+                  inputSource={res?.input_source || res?.decision?.input_source || undefined}
+                  captureDomainReliability={res?.capture_domain_reliability || res?.decision?.capture_domain_reliability || undefined}
+                  size="md"
+                />
+              )}
+              {reliability && (
+                <ThreatBadge
+                  reliability={reliability}
+                  inputSource={res?.input_source || res?.decision?.input_source || undefined}
+                  captureDomainReliability={res?.capture_domain_reliability || res?.decision?.capture_domain_reliability || undefined}
+                  size="md"
+                />
+              )}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
