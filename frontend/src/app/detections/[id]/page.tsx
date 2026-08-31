@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -20,7 +20,20 @@ import {
   Info,
 } from 'lucide-react';
 import { api } from '../../../lib/api';
-import { DetectionCaseDetail, DetectionEvidenceReport } from '../../../lib/types';
+import { AudioQuality, DetectionCaseDetail, DetectionEvidenceReport } from '../../../lib/types';
+
+/** Shape of the AASIST multi-window metadata stored in metadata_json.multi_window */
+interface MultiWindowMeta {
+  analysis_mode?: string;
+  window_count?: number;
+  eligible_window_count?: number;
+  excluded_low_energy_window_count?: number;
+  suspicious_segments?: Array<{
+    start_seconds: number;
+    end_seconds: number;
+    peak_synthetic_probability: number;
+  }>;
+}
 import { ThreatBadge } from '../../../components/ThreatBadge';
 import { ConfidenceGauge } from '../../../components/ConfidenceGauge';
 import { AudioWaveformVisualizer } from '../../../components/AudioWaveformVisualizer';
@@ -28,7 +41,6 @@ import { formatModelDisplayName } from '@/lib/formatters';
 
 export default function DetectionDetailPage() {
   const params = useParams();
-  const router = useRouter();
 
   // Safely extract and decode dynamic route param
   const rawId = params?.id;
@@ -47,13 +59,13 @@ export default function DetectionDetailPage() {
   const [copiedReport, setCopiedReport] = useState(false);
 
   useEffect(() => {
-    if (!id || id === '[id]' || id === '%5Bid%5D') {
-      setIsLoading(false);
-      setError('Detection case ID is invalid or not specified.');
-      return;
-    }
-
     const fetchDetail = async () => {
+      if (!id || id === '[id]' || id === '%5Bid%5D') {
+        setIsLoading(false);
+        setError('Detection case ID is invalid or not specified.');
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       try {
@@ -63,8 +75,8 @@ export default function DetectionDetailPage() {
         ]);
         setCaseDetail(caseData);
         setEvidenceReport(reportData);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load detection details.');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load detection details.');
       } finally {
         setIsLoading(false);
       }
@@ -125,9 +137,11 @@ export default function DetectionDetailPage() {
   }
 
   const res = caseDetail.result;
-  const audioQual = res?.audio_quality || res?.metadata_json?.audio_quality;
-  const reliability = res?.analysis_reliability || res?.decision?.analysis_reliability || audioQual?.analysis_reliability;
-  const qualityFlags = res?.quality_flags || res?.decision?.quality_flags || audioQual?.quality_flags || [];
+  const audioQual: AudioQuality | null | undefined =
+    res?.audio_quality ??
+    (res?.metadata_json?.audio_quality as AudioQuality | undefined);
+  const reliability = res?.analysis_reliability ?? res?.decision?.analysis_reliability ?? audioQual?.analysis_reliability;
+  const qualityFlags = res?.quality_flags ?? res?.decision?.quality_flags ?? audioQual?.quality_flags ?? [];
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -335,30 +349,33 @@ export default function DetectionDetailPage() {
                     {formatModelDisplayName(res?.model_version, res?.engine_type)}
                   </span>
                 </div>
-                {res?.metadata_json?.multi_window?.analysis_mode === 'multi_window' && (
-                  <>
-                    <div className="flex justify-between py-2 border-b border-slate-800/60">
-                      <span className="text-slate-400">Analysis Mode:</span>
-                      <span className="text-cyan-300 font-semibold">Multi-window AASIST (75% Overlap)</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-800/60">
-                      <span className="text-slate-400">Windows Evaluated:</span>
-                      <span className="text-slate-200">
-                        {res.metadata_json.multi_window.eligible_window_count ?? res.metadata_json.multi_window.window_count} active / {res.metadata_json.multi_window.window_count} total
-                      </span>
-                    </div>
-                    {res.metadata_json.multi_window.excluded_low_energy_window_count > 0 && (
+                {(res?.metadata_json?.multi_window as MultiWindowMeta | undefined)?.analysis_mode === 'multi_window' && (() => {
+                  const mw = res!.metadata_json!.multi_window as MultiWindowMeta;
+                  return (
+                    <>
                       <div className="flex justify-between py-2 border-b border-slate-800/60">
-                        <span className="text-slate-400">Excluded Silence Windows:</span>
-                        <span className="text-amber-400">{res.metadata_json.multi_window.excluded_low_energy_window_count} non-speech</span>
+                        <span className="text-slate-400">Analysis Mode:</span>
+                        <span className="text-cyan-300 font-semibold">Multi-window AASIST (75% Overlap)</span>
                       </div>
-                    )}
-                    <div className="flex justify-between py-2 border-b border-slate-800/60">
-                      <span className="text-slate-400">Aggregation Strategy:</span>
-                      <span className="text-slate-300">Conservative maximum (max_v1)</span>
-                    </div>
-                  </>
-                )}
+                      <div className="flex justify-between py-2 border-b border-slate-800/60">
+                        <span className="text-slate-400">Windows Evaluated:</span>
+                        <span className="text-slate-200">
+                          {mw.eligible_window_count ?? mw.window_count} active / {mw.window_count} total
+                        </span>
+                      </div>
+                      {(mw.excluded_low_energy_window_count ?? 0) > 0 && (
+                        <div className="flex justify-between py-2 border-b border-slate-800/60">
+                          <span className="text-slate-400">Excluded Silence Windows:</span>
+                          <span className="text-amber-400">{mw.excluded_low_energy_window_count} non-speech</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-2 border-b border-slate-800/60">
+                        <span className="text-slate-400">Aggregation Strategy:</span>
+                        <span className="text-slate-300">Conservative maximum (max_v1)</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">Analysis Latency:</span>
                   <span className="text-slate-200">{res?.processing_time_ms} ms</span>
@@ -366,22 +383,24 @@ export default function DetectionDetailPage() {
               </div>
 
               {/* Multi-Window Suspicious Activity Box */}
-              {res?.metadata_json?.multi_window?.analysis_mode === 'multi_window' && (
+              {(res?.metadata_json?.multi_window as MultiWindowMeta | undefined)?.analysis_mode === 'multi_window' && (() => {
+                const mw = res!.metadata_json!.multi_window as MultiWindowMeta;
+                return (
                 <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wider">
                       Approximate Suspicious Model Activity
                     </span>
                     <span className="text-[10px] font-mono text-slate-500">
-                      {(res.metadata_json.multi_window.suspicious_segments?.length || 0)} segment(s)
+                      {(mw.suspicious_segments?.length || 0)} segment(s)
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 font-mono leading-relaxed">
                     Approximate suspicious model activity localized within temporal windows. Not an exact AI timestamp boundary.
                   </p>
-                  {res.metadata_json.multi_window.suspicious_segments && res.metadata_json.multi_window.suspicious_segments.length > 0 ? (
+                  {mw.suspicious_segments && mw.suspicious_segments.length > 0 ? (
                     <div className="space-y-1.5 pt-1">
-                      {res.metadata_json.multi_window.suspicious_segments.map((seg: any, sIdx: number) => (
+                      {mw.suspicious_segments.map((seg, sIdx: number) => (
                         <div
                           key={sIdx}
                           className="flex items-center justify-between p-2 rounded-lg bg-red-950/30 border border-red-500/30 text-xs font-mono text-slate-200"
@@ -401,7 +420,8 @@ export default function DetectionDetailPage() {
                     </div>
                   )}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Countermeasure & Action Plan */}

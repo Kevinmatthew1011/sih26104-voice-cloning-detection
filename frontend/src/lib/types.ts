@@ -47,8 +47,8 @@ export interface DetectionResult {
   created_at: string;
   attack_type?: string | null;
   explanation?: string | null;
-  spectral_artifacts?: Record<string, any> | null;
-  metadata_json?: Record<string, any> | null;
+  spectral_artifacts?: Record<string, unknown> | null;
+  metadata_json?: Record<string, unknown> | null;
   action?: ActionType | null;
   raw_ml_action?: ActionType | null;
   final_operational_action?: ActionType | null;
@@ -111,7 +111,7 @@ export interface HealthStatus {
   details: {
     supported_extensions: string[];
     max_file_size_bytes: number;
-    engine_info: Record<string, any>;
+    engine_info: Record<string, unknown>;
   };
 }
 

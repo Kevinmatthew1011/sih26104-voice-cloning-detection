@@ -22,7 +22,8 @@ class ApiClient {
         throw new Error(`Health check failed with HTTP ${res.status}`);
       }
       return await res.json();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Backend server is offline';
       return {
         status: 'unreachable',
         environment: 'unknown',
@@ -34,7 +35,7 @@ class ApiClient {
         details: {
           supported_extensions: ['.wav', '.mp3', '.ogg', '.flac', '.m4a', '.aac', '.webm'],
           max_file_size_bytes: 25 * 1024 * 1024,
-          engine_info: { error: err?.message || 'Backend server is offline' },
+          engine_info: { error: message },
         },
       };
     }

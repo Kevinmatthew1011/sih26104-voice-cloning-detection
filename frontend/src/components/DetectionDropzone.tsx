@@ -177,8 +177,8 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
       timerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
-      setErrorMessage('Microphone access denied or unavailable: ' + (err.message || 'Error'));
+    } catch (err: unknown) {
+      setErrorMessage('Microphone access denied or unavailable: ' + (err instanceof Error ? err.message : 'Error'));
     }
   };
 
@@ -215,8 +215,8 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           router.push(`/detections/${data.id}`);
         }, 1000);
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Detection analysis failed.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Detection analysis failed.');
     } finally {
       clearInterval(stageInterval);
       setIsAnalyzing(false);

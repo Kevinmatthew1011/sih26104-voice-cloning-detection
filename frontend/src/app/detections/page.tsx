@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Radio,
@@ -22,6 +22,10 @@ export default function DetectionsHistoryPage() {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const searchRef = useRef(search);
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
   const [predictionFilter, setPredictionFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
   const [page, setPage] = useState(0);
@@ -47,7 +51,25 @@ export default function DetectionsHistoryPage() {
   };
 
   useEffect(() => {
-    loadData();
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const res = await api.listDetections({
+          skip: page * limit,
+          limit,
+          search: searchRef.current.trim() || undefined,
+          prediction: predictionFilter !== 'all' ? predictionFilter : undefined,
+          risk_level: riskFilter !== 'all' ? riskFilter : undefined,
+        });
+        setCases(res.items);
+        setTotal(res.total);
+      } catch {
+        // Graceful error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, [page, predictionFilter, riskFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

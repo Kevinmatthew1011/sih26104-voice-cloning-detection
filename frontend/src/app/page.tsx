@@ -43,7 +43,23 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const [listRes, healthRes] = await Promise.all([
+          api.listDetections({ limit: 5 }),
+          api.getHealth(),
+        ]);
+        setRecentCases(listRes.items);
+        setTotalCount(listRes.total);
+        setHealth(healthRes);
+      } catch {
+        // Handled gracefully
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   // Compute real metrics from loaded cases

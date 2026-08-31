@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UploadCloud, ShieldAlert, Cpu, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Cpu, Sparkles, CheckCircle2 } from 'lucide-react';
 import { DetectionDropzone } from '../../components/DetectionDropzone';
-import { DetectionResult } from '../../lib/types';
+
 import { api } from '../../lib/api';
 
 export default function DetectPage() {
-  const [lastResult, setLastResult] = useState<DetectionResult | null>(null);
   const [isSynthesizingSample, setIsSynthesizingSample] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
 
@@ -63,10 +62,9 @@ export default function DetectPage() {
     setSampleError(null);
     try {
       const file = createTestAudioBlob(sampleType);
-      const res = await api.uploadAndDetect(file);
-      setLastResult(res);
-    } catch (err: any) {
-      setSampleError(err.message || 'Sample test failed');
+      await api.uploadAndDetect(file);
+    } catch (err: unknown) {
+      setSampleError(err instanceof Error ? err.message : 'Sample test failed');
     } finally {
       setIsSynthesizingSample(false);
     }
@@ -90,7 +88,7 @@ export default function DetectPage() {
 
       {/* Main Dropzone & Upload Studio */}
       <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-6">
-        <DetectionDropzone onDetectionComplete={(res) => setLastResult(res)} />
+        <DetectionDropzone />
 
         {/* Quick Test Demo Samples */}
         <div className="pt-6 border-t border-slate-800/80">
