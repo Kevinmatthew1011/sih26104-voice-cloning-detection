@@ -196,3 +196,60 @@ export interface DetectionEvidenceReport {
   audit: ReportAuditProvenance;
   limitations: string[];
 }
+
+export interface PromptItem {
+  prompt_id: string;
+  category: string;
+  text: string;
+  target_duration_range: [number, number];
+  phonetic_focus: string;
+}
+
+export interface PromptSetResponse {
+  prompt_set_name: string;
+  version: string;
+  description: string;
+  prompts: PromptItem[];
+}
+
+export interface PhysicalQualityTelemetry {
+  clipping_percentage: number;
+  peak_amplitude_dbfs: number;
+  rms_energy_dbfs: number;
+  estimated_snr_db: number;
+  silence_percentage: number;
+}
+
+export interface IngestionResponse {
+  status: string;
+  sample_id: string;
+  ground_truth: string;
+  duration_seconds: number;
+  sha256: string;
+  quality_passed: boolean;
+  quality_telemetry: PhysicalQualityTelemetry;
+  pool_relative_path: string;
+  message: string;
+}
+
+export interface BalanceDashboardResponse {
+  total_samples: number;
+  human_speaker_count: number;
+  real_sample_count: number;
+  synthetic_sample_count: number;
+  per_human_speaker: Record<string, any>;
+  per_device_category: Record<string, any>;
+  per_split: Record<string, any>;
+  imbalance_flags: string[];
+  confound_flags: string[];
+  leakage_flags: string[];
+  ready_for_stage_2_evaluation: boolean;
+}
+
+export interface SplitProposalResponse {
+  status: string;
+  message: string;
+  speaker_assignment?: Record<string, string[]>;
+  disjointness_verified?: boolean;
+}
+

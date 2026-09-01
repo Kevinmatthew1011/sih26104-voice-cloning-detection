@@ -1,4 +1,14 @@
-import { DetectionResult, DetectionCaseDetail, DetectionListResponse, HealthStatus, DetectionEvidenceReport } from './types';
+import {
+  DetectionResult,
+  DetectionCaseDetail,
+  DetectionListResponse,
+  HealthStatus,
+  DetectionEvidenceReport,
+  PromptSetResponse,
+  BalanceDashboardResponse,
+  IngestionResponse,
+  SplitProposalResponse,
+} from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -11,6 +21,29 @@ class ApiClient {
 
   getAudioUrl(caseId: string): string {
     return `${this.baseUrl}/api/v1/detections/${caseId}/audio`;
+  }
+
+  private async parseErrorResponse(res: Response, fallbackAction: string): Promise<string> {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      try {
+        const data = await res.json();
+        if (data.detail) {
+          return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+        }
+      } catch {
+        // Fallback to text
+      }
+    }
+    try {
+      const text = await res.text();
+      if (text) {
+        return `${fallbackAction} failed (HTTP ${res.status}): ${text.slice(0, 300)}`;
+      }
+    } catch {
+      // Ignore
+    }
+    return `${fallbackAction} failed with HTTP status ${res.status}`;
   }
 
   async getHealth(): Promise<HealthStatus> {
@@ -55,16 +88,8 @@ class ApiClient {
     });
 
     if (!res.ok) {
-      let errorMessage = `Upload failed with status ${res.status}`;
-      try {
-        const errorData = await res.json();
-        if (errorData.detail) {
-          errorMessage = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
-        }
-      } catch {
-        // Fallback to text status
-      }
-      throw new Error(errorMessage);
+      const errMsg = await this.parseErrorResponse(res, 'Detection upload');
+      throw new Error(errMsg);
     }
 
     return await res.json();
@@ -90,7 +115,8 @@ class ApiClient {
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to load detection cases (HTTP ${res.status})`);
+      const errMsg = await this.parseErrorResponse(res, 'Listing detection cases');
+      throw new Error(errMsg);
     }
 
     return await res.json();
@@ -105,11 +131,11 @@ class ApiClient {
       if (res.status === 404) {
         throw new Error(`Detection case '${id}' not found.`);
       }
-      throw new Error(`Failed to fetch detection case (HTTP ${res.status})`);
+      const errMsg = await this.parseErrorResponse(res, 'Fetching detection case');
+      throw new Error(errMsg);
     }
 
     const data = await res.json();
-    // Ensure full URL for audio
     if (data.audio_url && !data.audio_url.startsWith('http')) {
       data.audio_url = `${this.baseUrl}${data.audio_url}`;
     }
@@ -125,7 +151,63 @@ class ApiClient {
       if (res.status === 404) {
         throw new Error(`Detection evidence report for '${id}' not found.`);
       }
-      throw new Error(`Failed to fetch detection evidence report (HTTP ${res.status})`);
+      const errMsg = await this.parseErrorResponse(res, 'Fetching detection report');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  // --- Physical Domain Collection Endpoints ---
+
+  async getCollectionPrompts(): Promise<PromptSetResponse> {
+    const res = await fetch(`${this.baseUrl}/api/v1/collection/prompts`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Fetching collection prompts');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async getCollectionBalanceDashboard(): Promise<BalanceDashboardResponse> {
+    const res = await fetch(`${this.baseUrl}/api/v1/collection/balance-dashboard`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Fetching balance dashboard');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async ingestPhysicalRecording(formData: FormData): Promise<IngestionResponse> {
+    const res = await fetch(`${this.baseUrl}/api/v1/collection/physical-recording`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Ingesting physical recording');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async proposeCollectionSplit(): Promise<SplitProposalResponse> {
+    const res = await fetch(`${this.baseUrl}/api/v1/collection/propose-split`, {
+      method: 'POST',
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Generating split proposal');
+      throw new Error(errMsg);
     }
 
     return await res.json();
@@ -133,3 +215,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+

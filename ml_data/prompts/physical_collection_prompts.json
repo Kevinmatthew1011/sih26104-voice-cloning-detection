@@ -1,0 +1,77 @@
+{
+  "prompt_set_name": "SIH26104_PHYSICAL_PHONETIC_PROMPTS_V1",
+  "version": "1.0",
+  "description": "Standardized 10-prompt set for multi-speaker, multi-device physical acoustic speech collection.",
+  "prompts": [
+    {
+      "prompt_id": "PROMPT_01",
+      "category": "phonetic_pangram",
+      "text": "The quick brown fox jumps over the lazy dog near the river bank.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "broad_spectral_distribution"
+    },
+    {
+      "prompt_id": "PROMPT_02",
+      "category": "digits_discrete",
+      "text": "Verification code is seven four two, nine zero one, eight five three.",
+      "target_duration_range": [4.0, 8.0],
+      "phonetic_focus": "vowel_formants_and_stops"
+    },
+    {
+      "prompt_id": "PROMPT_03",
+      "category": "security_authentication",
+      "text": "Please confirm my identity for the voice authentication security protocol.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "conversational_prosody"
+    },
+    {
+      "prompt_id": "PROMPT_04",
+      "category": "conversational_business",
+      "text": "Tomorrow afternoon we have scheduled a team review at three thirty sharp.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "nasals_and_glides"
+    },
+    {
+      "prompt_id": "PROMPT_05",
+      "category": "acoustic_challenge",
+      "text": "High quality audio recording requires careful acoustic noise management.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "plosives_and_fricatives"
+    },
+    {
+      "prompt_id": "PROMPT_06",
+      "category": "sequential_numbers",
+      "text": "Zero, one, two, three, four, five, six, seven, eight, nine.",
+      "target_duration_range": [4.0, 9.0],
+      "phonetic_focus": "digit_transitions"
+    },
+    {
+      "prompt_id": "PROMPT_07",
+      "category": "technical_vocoding",
+      "text": "Voice cloning technology can accurately replicate synthetic intonation patterns.",
+      "target_duration_range": [4.0, 8.0],
+      "phonetic_focus": "multisyllabic_stress"
+    },
+    {
+      "prompt_id": "PROMPT_08",
+      "category": "sibilants_frictional",
+      "text": "She sells sea shells by the sea shore on sunny mornings.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "high_frequency_sibilance"
+    },
+    {
+      "prompt_id": "PROMPT_09",
+      "category": "interrogative_inflection",
+      "text": "Is this recording being transmitted over a secure encrypted network channel?",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "pitch_inflection_and_cadence"
+    },
+    {
+      "prompt_id": "PROMPT_10",
+      "category": "system_command",
+      "text": "Antigravity voice guard system active, standing by for acoustic analysis.",
+      "target_duration_range": [3.0, 7.0],
+      "phonetic_focus": "assertive_cadence"
+    }
+  ]
+}

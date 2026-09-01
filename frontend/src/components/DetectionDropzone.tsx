@@ -47,6 +47,9 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
   // Live microphone recording states
   const [isRecording, setIsRecording] = useState(false);
+  // True between .stop() call and the async onstop event resolving the blob,
+  // preventing the UI from flashing back to the idle/empty dropzone state.
+  const [isStoppingRecording, setIsStoppingRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -67,6 +70,11 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
     if (!validExtensions.includes(fileExt)) {
       setErrorMessage(`Invalid file type (${fileExt}). Allowed: ${validExtensions.join(', ')}`);
+      return;
+    }
+
+    if (file.size === 0) {
+      setErrorMessage('Recording is empty (0 bytes). Please record for at least 1 second before stopping.');
       return;
     }
 
@@ -166,6 +174,9 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           `mic_sample_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}${ext}`,
           { type: actualMime }
         );
+        // Clear the stopping flag before handing off to validateAndSetFile,
+        // so the UI transitions cleanly to the file-selected state.
+        setIsStoppingRecording(false);
         validateAndSetFile(recordedFile, 'browser_microphone');
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -184,6 +195,9 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      // Enter the stopping state immediately so the UI stays in the recording
+      // view until the onstop blob is ready, rather than flashing to idle.
+      setIsStoppingRecording(true);
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -252,7 +266,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           onChange={handleFileChange}
         />
 
-        {isRecording ? (
+        {isRecording || isStoppingRecording ? (
           <div className="py-6 flex flex-col items-center justify-center space-y-4">
             <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30">
               <span className="absolute w-full h-full rounded-full bg-red-500/20 animate-ping" />
@@ -260,15 +274,16 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
             </div>
             <div>
               <span className="font-mono text-2xl font-bold text-red-400">
-                {formatSecs(recordingSeconds)}
+                {isStoppingRecording ? 'Processing…' : formatSecs(recordingSeconds)}
               </span>
               <p className="text-xs font-mono text-slate-400 mt-1">
-                Recording live audio stream from microphone...
+                {isStoppingRecording ? 'Assembling audio blob…' : 'Recording live audio stream from microphone...'}
               </p>
             </div>
             <button
               onClick={stopRecording}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              disabled={isStoppingRecording}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
             >
               <Square className="w-4 h-4" /> Stop Recording
             </button>

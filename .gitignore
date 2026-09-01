@@ -103,3 +103,14 @@ temp/
 # Raw research datasets & experiments - local only
 /datasets/
 /experiments/
+
+# Physical-domain research data — keep local
+ml_data/physical_domain/
+ml_data/physical_domain_pool/
+ml_data/quarantined_attempts/
+ml_data/simulated_channel_benchmark/
+
+# Microphone evaluation generated artifacts
+ml_eval/microphone/scratch/
+ml_eval/microphone/results/
+ml_eval/microphone/__pycache__/
