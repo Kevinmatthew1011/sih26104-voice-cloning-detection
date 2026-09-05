@@ -1,25 +1,66 @@
-# Browser scam-call demo
+# Browser scam-call demo (Dual-Layer Scam Defense)
 
-The `/call-demo` page demonstrates incoming, answered, declined, and ended calls. Open it from the dashboard or desktop navigation. No real telephone connection, microphone capture, speech transcription, or AASIST inference is involved.
+The `/call-demo` page demonstrates a dual-layer scam defense simulation unifying **Acoustic Voice Cloning Defense** (AASIST deepfake / synthetic voice detection) and **Semantic Intent Defense** (conversational heuristics). Open it from the dashboard or desktop navigation.
 
-## Requirements and design
+Simulated calls allow inspecting caller scenarios, transcript streams, and acoustic telemetry without placing real telephone carrier calls or accessing hardware lines.
 
-The demo adds content-based scam warnings alongside the existing audio-analysis product. It uses the existing Next.js/React stack without new dependencies. A pure frontend assessment function evaluates sample or custom English caller messages. Call state and the last ten previous call summaries live in page memory; no database changes or backend endpoints are needed. Reloading or leaving the page clears them.
+## Dual-layer architecture
 
-The rules identify credential requests and remote-access requests as high risk. A payment request produces a warning; a payment request combined with urgency or threats produces high risk. Results are heuristic categories, not calibrated probabilities. Common negative safety advice is excluded, but complex negation, context, other languages, and paraphrases can produce misses or false warnings. No matches never means a caller is verified safe.
+The defense model operates across two independent analysis planes:
+
+1. **Layer 1: Acoustic Defense (AASIST SincNet Telemetry)**
+   - Leverages the backend AASIST model (`POST /api/v1/detections` via `api.uploadAndDetect()`).
+   - Analyzes raw 16 kHz audio waveforms for synthetic voice artifacts, spectral anomalies, and vocoder signatures.
+   - Evaluates synthetic probability ($P_{synth}$), confidence, risk level (`low`, `medium`, `high`), and security action (`ALLOW`, `VERIFY`, `BLOCK`).
+   - *Technical Honesty Principle*: AASIST assesses acoustic synthetic voice evidence; it does NOT classify conversational fraud intent.
+
+2. **Layer 2: Semantic Defense (Conversational Intent Heuristics)**
+   - Evaluates caller message streams in `frontend/src/lib/scam-demo.ts` using `assessScamTranscript()`.
+   - Identifies high-risk patterns:
+     - Credential theft: requests for OTPs, passwords, PINs, or verification codes.
+     - Remote access takeovers: requests to install AnyDesk, TeamViewer, or enable remote control.
+     - Coercive financial demands: payment or crypto transfers combined with urgency, arrest threats, or fake "safe account" claims.
+   - Categorizes risk as `unassessed`, `no_indicators`, `warning`, or `high`.
+   - Heuristics are illustrative rules, not calibrated probabilities. Negation advice is recognized, but paraphrases or novel phrasing may evade detection.
+
+3. **Unified Threat Assessment**
+   - Synthesizes both layers using `computeUnifiedAssessment(acoustic, semantic)` into four actionable tiers:
+     - **HIGH**: Strong acoustic synthetic voice evidence ($P_{synth} \ge 0.70$ or synthetic with high risk) **AND** strong semantic scam intent. Immediate disconnection recommended; optional 2-second automatic call termination.
+     - **MEDIUM**: Asymmetric or moderate risk — e.g., synthetic voice on neutral conversation, genuine/unassessed voice with overt scam demands, or moderate payment warnings. Verification required.
+     - **LOW**: Likely genuine human voice ($P_{synth} < 0.50$) **AND** benign transcript. Standard handling. Never claimed as "verified safe".
+     - **UNASSESSED**: Acoustic analysis unexecuted **AND** insufficient transcript content.
+
+## Audio handling & backend integration
+
+- Pre-packaged demo scenarios do not include committed audio files in git repository history (audio directories like `backend/uploads/` are gitignored and empty).
+- By default, scenarios initialize with acoustic status `Not analyzed`.
+- Users can test live acoustic inference by attaching any local audio file (`.wav`, `.mp3`, `.flac`, `.ogg`, `.m4a`) via the **Attach Audio Clip** picker in the UI. This triggers live inference against the FastAPI backend (`POST /api/v1/detections`).
 
 ## Demo procedure
 
-1. Select a scenario and simulate an incoming call.
-2. Decline it, or answer to receive a sample caller message every 2.5 seconds.
-3. Observe warnings and their specific reasons. With automatic ending enabled, high risk ends the simulated call after a two-second warning. Disable the option to retain manual control.
-4. Add a custom message while connected to test other phrases. Inputs are limited to 500 characters and 50 messages per call.
-5. Choose New demo after ending to move the call summary into session history and select another scenario.
-
-Timers stop when the call ends or the page unmounts. Transcript events cannot reopen ended calls. The existing audio detection policy and audit records remain independent.
+1. Select a scenario (e.g., Bank impersonation, Urgent payment demand, Remote-access scam, or Ordinary conversation).
+2. Optionally attach a local audio file to test live AASIST acoustic scoring.
+3. Click **Simulate Incoming Call**.
+4. Decline the call, or answer to receive simulated caller messages streamed at 2.5-second intervals.
+5. Review the **Unified Threat Assessment** banner, matched semantic indicators, and acoustic telemetry.
+6. Inject custom caller messages via the input field to test edge cases or specific phrasing.
+7. With automatic termination enabled, calls reaching `HIGH` threat will terminate after a 2-second safety warning.
+8. Click **New Demo Session** after ending to archive the call summary to session history and test another scenario.
 
 ## Verification
 
-Run `node --experimental-strip-types --test tests/scam-demo.test.mjs` in `frontend` with a Node runtime supporting type stripping, then `npm run lint` and `npm run build`. Browser checks cover answering, declining, automatic ending, manual override, custom messages, resetting, and ordinary-call behavior.
+Run the test suite in `frontend`:
+```bash
+node --test tests/scam-demo.test.mjs
+npm run lint
+npm run build
+```
 
-Real call support would require an authorized call-control integration, speech transcription, evaluated scam detection, and persistent call audit records.
+The test suite covers:
+- Synthetic voice + scam intent $\to$ `HIGH` verdict.
+- Genuine voice + scam intent $\to$ `MEDIUM` verdict.
+- Synthetic voice + benign content $\to$ `MEDIUM` verdict.
+- Genuine voice + benign content $\to$ `LOW` verdict.
+- Unanalyzed audio + empty messages $\to$ `UNASSESSED` verdict.
+- Disclaimers ensuring low threat never claims caller authenticity or "verified safe".
+- Schema extraction from backend `DetectionResult` and `SecurityDecisionDTO`.
