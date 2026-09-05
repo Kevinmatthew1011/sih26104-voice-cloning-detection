@@ -44,60 +44,93 @@ export interface UnifiedAssessment {
 export interface DemoScenario {
   id: string;
   name: string;
+  title: string;
   caller: string;
+  impersonationContext: string;
   expectedPattern: string;
-  sampleAudioPath?: string | null;
+  expectedIndicators: string[];
+  sampleAudioPath: string | null;
   messages: string[];
 }
 
 export const demoScenarios: DemoScenario[] = [
   {
     id: 'otp',
-    name: 'Bank impersonation',
-    caller: 'Unverified bank representative',
+    name: 'OTP / Bank Impersonation',
+    title: 'OTP / Bank Impersonation',
+    caller: 'Unverified Bank Security Officer',
+    impersonationContext: 'Caller pressures user to reveal OTP or banking credentials under threat of account suspension',
     expectedPattern: 'Authority pressure + private OTP theft demand',
+    expectedIndicators: [
+      'Caller requests a private code or password.',
+      'Caller uses urgency, threats, or a safe-account claim.',
+    ],
     sampleAudioPath: null,
     messages: [
-      'Hello, I am calling about your bank account.',
-      'Your account will be blocked. Act now to avoid losing access.',
+      'Hello, I am calling from the fraud security division regarding your bank account.',
+      'Your account will be blocked immediately due to suspicious activity. Act now to avoid losing access.',
       'Please tell me your OTP to verify your account.',
     ],
   },
   {
-    id: 'payment',
-    name: 'Urgent payment demand',
-    caller: 'Unknown caller',
-    expectedPattern: 'Delivery issue pretext + coercive money transfer',
+    id: 'executive',
+    name: 'Executive / Urgent Transfer Fraud',
+    title: 'Executive / Urgent Transfer Fraud',
+    caller: 'Impersonated Executive / CXO',
+    impersonationContext: 'Caller impersonates manager/CXO demanding urgent wire transfer to safe escrow account',
+    expectedPattern: 'Executive impersonation + urgent coercive money transfer',
+    expectedIndicators: [
+      'Caller requests a payment or money transfer.',
+      'Caller uses urgency, threats, or a safe-account claim.',
+    ],
     sampleAudioPath: null,
     messages: [
-      'There is a problem with your delivery.',
-      'Transfer money to this safe account immediately.',
+      'This is executive management calling regarding a confidential board acquisition.',
+      'We require an emergency wire transfer immediately to complete the escrow agreement.',
+      'Transfer money to this safe account immediately to prevent contract cancellation.',
     ],
   },
   {
     id: 'support',
-    name: 'Remote-access scam',
-    caller: 'Unverified technical support',
-    expectedPattern: 'Tech support impersonation + remote desktop takeover',
+    name: 'Remote Access Scam',
+    title: 'Remote Access Scam',
+    caller: 'Unverified Technical Support',
+    impersonationContext: 'Caller asks victim to install remote access software or share screen to fix fake infection',
+    expectedPattern: 'Tech support impersonation + remote desktop takeover tool',
+    expectedIndicators: [
+      'Caller requests remote access to your device.',
+    ],
     sampleAudioPath: null,
     messages: [
-      'I am calling from technical support.',
-      'Install AnyDesk and give me remote access to your computer.',
+      'Hello, I am calling from technical support regarding critical malware detected on your computer.',
+      'Please install AnyDesk and give me remote access to your computer to inspect the system files.',
     ],
   },
   {
     id: 'ordinary',
-    name: 'Ordinary conversation',
-    caller: 'Demo contact',
+    name: 'Benign Control',
+    title: 'Benign Control',
+    caller: 'Project Collaborator',
+    impersonationContext: 'Ordinary non-financial conversational exchange without urgency or credential demands',
     expectedPattern: 'Benign coordination / meeting schedule',
+    expectedIndicators: [],
     sampleAudioPath: null,
     messages: [
-      'Hello, are we still meeting tomorrow?',
-      'I can meet you at the cafe at ten.',
+      'Hello, are we still meeting tomorrow for the project review?',
+      'I can meet you at the cafe at ten to review the presentation slides.',
       'Great, see you then.',
     ],
   },
 ];
+
+export function getDemoScenario(id: string): DemoScenario {
+  const found = demoScenarios.find((item) => item.id === id);
+  if (found) return found;
+  if (id === 'payment') {
+    return demoScenarios.find((item) => item.id === 'executive') || demoScenarios[0];
+  }
+  return demoScenarios[0];
+}
 
 // Demonstration heuristics only: no calibrated score, identity verification, or ML claim.
 export function assessScamTranscript(messages: string[]): ScamAssessment {
@@ -140,7 +173,7 @@ export function computeAcousticAssessment(
   if (error) {
     return {
       status: 'error',
-      label: 'Acoustic Analysis Error',
+      label: 'Acoustic analysis unavailable — semantic risk only',
       syntheticProbability: null,
       confidence: null,
       riskLevel: 'not_assessed',
@@ -214,6 +247,9 @@ export function computeUnifiedAssessment(
     acoustic.status === 'likely_genuine' ||
     acoustic.status === 'inconclusive';
 
+  const isAcousticUnavailable =
+    acoustic.status === 'error' || acoustic.status === 'audio_unavailable';
+
   const isAcousticSynthetic =
     acoustic.status === 'synthetic_detected' ||
     (acoustic.syntheticProbability !== null && acoustic.syntheticProbability >= 0.70) ||
@@ -275,13 +311,17 @@ export function computeUnifiedAssessment(
       explanation =
         'Conversational heuristics flagged high-risk scam intent, although voice acoustics appear consistent with human speech.';
     } else if (isSemanticHigh && !isAcousticAssessed) {
-      headline = 'CAUTION — High Scam Intent (Acoustic Unanalyzed)';
-      explanation =
-        'High-risk conversational scam patterns detected in transcript. Voice cloning acoustic analysis has not been executed on this call stream.';
+      headline = isAcousticUnavailable
+        ? 'CAUTION — High Scam Intent (Acoustic Analysis Unavailable)'
+        : 'CAUTION — High Scam Intent (Acoustic Unanalyzed)';
+      explanation = isAcousticUnavailable
+        ? 'High-risk conversational scam patterns detected in transcript. Acoustic analysis unavailable — semantic risk only.'
+        : 'High-risk conversational scam patterns detected in transcript. Voice cloning acoustic analysis has not been executed on this call stream.';
     } else {
       headline = 'CAUTION — Moderate Fraud Risk Indicators';
-      explanation =
-        'Moderate scam phrasing or acoustic ambiguity detected. Elevated vigilance is advised.';
+      explanation = isAcousticUnavailable
+        ? 'Moderate scam phrasing detected in transcript. Acoustic analysis unavailable — semantic risk only.'
+        : 'Moderate scam phrasing or acoustic ambiguity detected. Elevated vigilance is advised.';
     }
 
     return {
@@ -290,6 +330,8 @@ export function computeUnifiedAssessment(
       explanation,
       acousticSummary: isAcousticAssessed
         ? `${acoustic.label}${acoustic.syntheticProbability !== null ? ` (P_synth=${(acoustic.syntheticProbability * 100).toFixed(1)}%)` : ''}`
+        : isAcousticUnavailable
+        ? 'Acoustic analysis unavailable — semantic risk only'
         : 'Acoustic voice analysis not performed or unavailable.',
       semanticSummary:
         semantic.reasons.length > 0
@@ -319,18 +361,191 @@ export function computeUnifiedAssessment(
     };
   }
 
-  // UNASSESSED: acoustic analysis has not run and semantic evidence is insufficient
+  // UNASSESSED: acoustic analysis has not run / is unavailable and semantic evidence is insufficient or nominal
   return {
     verdict: 'UNASSESSED',
-    headline: 'UNASSESSED — Telemetry Incomplete',
-    explanation:
-      'Acoustic voice analysis has not run, and the conversation transcript contains insufficient content for reliable threat evaluation.',
-    acousticSummary: isAcousticAssessed ? acoustic.label : 'Acoustic analysis has not run.',
+    headline: isAcousticUnavailable
+      ? 'UNASSESSED — Acoustic Telemetry Unavailable'
+      : 'UNASSESSED — Telemetry Incomplete',
+    explanation: isAcousticUnavailable
+      ? 'Acoustic analysis unavailable — semantic risk only. Transcript contains nominal conversation with no scam triggers, but voice cloning authenticity cannot be verified without acoustic analysis.'
+      : 'Acoustic voice analysis has not run, and the conversation transcript contains insufficient content for reliable threat evaluation.',
+    acousticSummary: isAcousticAssessed
+      ? acoustic.label
+      : isAcousticUnavailable
+      ? 'Acoustic analysis unavailable — semantic risk only'
+      : 'Acoustic analysis has not run.',
     semanticSummary:
       semantic.risk === 'unassessed'
         ? 'No caller messages analyzed.'
+        : semantic.risk === 'no_indicators'
+        ? 'Transcript contains nominal conversation (no suspicious scam patterns).'
         : 'Transcript contains insufficient or baseline conversation.',
-    recommendedAction: 'Awaiting audio sample or caller transcript to begin dual-layer assessment.',
+    recommendedAction: isAcousticUnavailable
+      ? 'Attach an audio recording to evaluate voice cloning risk with backend AASIST.'
+      : 'Awaiting audio sample or caller transcript to begin dual-layer assessment.',
     disclaimer,
+  };
+}
+
+export interface RunScenarioOptions {
+  scenario: DemoScenario;
+  attachedFile?: File | null;
+  fetchFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  uploadAndDetectFn?: (file: File) => Promise<DetectionResult>;
+}
+
+export interface ScenarioExecutionResult {
+  scenario: DemoScenario;
+  transcript: string[];
+  semantic: ScamAssessment;
+  acoustic: AcousticAssessment;
+  unified: UnifiedAssessment;
+  audioSourceUsed: 'sample_file' | 'attached_file' | 'none';
+  audioFileName: string | null;
+  executedAt: string;
+}
+
+export async function runScenario(options: RunScenarioOptions): Promise<ScenarioExecutionResult> {
+  const { scenario, attachedFile, fetchFn, uploadAndDetectFn } = options;
+
+  const transcript = [...scenario.messages];
+  const semantic = assessScamTranscript(transcript);
+
+  let acoustic: AcousticAssessment;
+  let audioSourceUsed: 'sample_file' | 'attached_file' | 'none' = 'none';
+  let audioFileName: string | null = null;
+  let fileToUpload: File | null = attachedFile ?? null;
+
+  if (fileToUpload) {
+    audioSourceUsed = 'attached_file';
+    audioFileName = fileToUpload.name;
+  } else if (scenario.sampleAudioPath) {
+    audioSourceUsed = 'sample_file';
+    audioFileName = scenario.sampleAudioPath.split('/').pop() || 'sample.wav';
+    const effectiveFetch = fetchFn ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : undefined);
+
+    if (effectiveFetch) {
+      try {
+        const response = await effectiveFetch(scenario.sampleAudioPath);
+        if (!response.ok) {
+          throw new Error(`Audio fixture not found (${response.status} ${response.statusText}): ${scenario.sampleAudioPath}`);
+        }
+        const blob = await response.blob();
+        fileToUpload = new File([blob], audioFileName, { type: blob.type || 'audio/wav' });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        acoustic = {
+          status: 'error',
+          label: 'Acoustic analysis unavailable — semantic risk only',
+          syntheticProbability: null,
+          confidence: null,
+          riskLevel: 'not_assessed',
+          prediction: null,
+          action: null,
+          engineType: null,
+          modelVersion: null,
+          errorMessage: message,
+        };
+        const unified = computeUnifiedAssessment(acoustic, semantic);
+        return {
+          scenario,
+          transcript,
+          semantic,
+          acoustic,
+          unified,
+          audioSourceUsed,
+          audioFileName,
+          executedAt: new Date().toISOString(),
+        };
+      }
+    } else {
+      acoustic = {
+        status: 'error',
+        label: 'Acoustic analysis unavailable — semantic risk only',
+        syntheticProbability: null,
+        confidence: null,
+        riskLevel: 'not_assessed',
+        prediction: null,
+        action: null,
+        engineType: null,
+        modelVersion: null,
+        errorMessage: 'Audio fetch unavailable in current environment',
+      };
+      const unified = computeUnifiedAssessment(acoustic, semantic);
+      return {
+        scenario,
+        transcript,
+        semantic,
+        acoustic,
+        unified,
+        audioSourceUsed,
+        audioFileName,
+        executedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  if (fileToUpload) {
+    if (uploadAndDetectFn) {
+      try {
+        const detectionResult = await uploadAndDetectFn(fileToUpload);
+        acoustic = computeAcousticAssessment(detectionResult);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        acoustic = {
+          status: 'error',
+          label: 'Acoustic analysis unavailable — semantic risk only',
+          syntheticProbability: null,
+          confidence: null,
+          riskLevel: 'not_assessed',
+          prediction: null,
+          action: null,
+          engineType: null,
+          modelVersion: null,
+          errorMessage: message,
+        };
+      }
+    } else {
+      acoustic = {
+        status: 'error',
+        label: 'Acoustic analysis unavailable — semantic risk only',
+        syntheticProbability: null,
+        confidence: null,
+        riskLevel: 'not_assessed',
+        prediction: null,
+        action: null,
+        engineType: null,
+        modelVersion: null,
+        errorMessage: 'Backend detection client not configured',
+      };
+    }
+  } else {
+    // Missing / null audio path and no attached file => acoustic unavailable
+    acoustic = {
+      status: 'audio_unavailable',
+      label: 'Acoustic analysis unavailable — semantic risk only',
+      syntheticProbability: null,
+      confidence: null,
+      riskLevel: 'not_assessed',
+      prediction: null,
+      action: null,
+      engineType: null,
+      modelVersion: null,
+      errorMessage: 'No audio fixture specified for scenario',
+    };
+  }
+
+  const unified = computeUnifiedAssessment(acoustic, semantic);
+
+  return {
+    scenario,
+    transcript,
+    semantic,
+    acoustic,
+    unified,
+    audioSourceUsed,
+    audioFileName,
+    executedAt: new Date().toISOString(),
   };
 }
