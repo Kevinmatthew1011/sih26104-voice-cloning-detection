@@ -100,6 +100,9 @@ export default function DashboardPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-4">
+            <Link href="/call-demo" className="flex items-center gap-2 px-6 py-3 rounded-xl border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 font-semibold text-xs uppercase tracking-wider hover:bg-cyan-900/40">
+              <ShieldAlert className="w-4 h-4" /> Try Scam Call Demo
+            </Link>
             <Link
               href="/detect"
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-95"

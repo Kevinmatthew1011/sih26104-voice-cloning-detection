@@ -232,14 +232,36 @@ export interface IngestionResponse {
   message: string;
 }
 
+export interface PerHumanSpeakerStats {
+  genuine_sample_count: number;
+  device_categories: string[];
+  session_count: number;
+  percentage_of_real_class: number;
+}
+
+export interface PerDeviceCategoryStats {
+  real_count: number;
+  synthetic_count: number;
+  total: number;
+}
+
+export interface PerSplitStats {
+  total: number;
+  real_count: number;
+  synthetic_count: number;
+  human_speaker_count: number;
+  human_speakers: string[];
+  device_distribution: Record<string, number>;
+}
+
 export interface BalanceDashboardResponse {
   total_samples: number;
   human_speaker_count: number;
   real_sample_count: number;
   synthetic_sample_count: number;
-  per_human_speaker: Record<string, any>;
-  per_device_category: Record<string, any>;
-  per_split: Record<string, any>;
+  per_human_speaker: Record<string, PerHumanSpeakerStats>;
+  per_device_category: Record<string, PerDeviceCategoryStats>;
+  per_split: Record<string, PerSplitStats>;
   imbalance_flags: string[];
   confound_flags: string[];
   leakage_flags: string[];

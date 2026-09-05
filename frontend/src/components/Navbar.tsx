@@ -33,6 +33,7 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { name: 'Dashboard', href: '/', icon: Activity },
     { name: 'Scan Audio', href: '/detect', icon: UploadCloud },
+    { name: 'Call Demo', href: '/call-demo', icon: ShieldAlert },
     { name: 'Audit Log', href: '/detections', icon: Radio },
   ];
 

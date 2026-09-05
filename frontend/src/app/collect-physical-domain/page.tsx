@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic,
   Square,
@@ -11,24 +11,28 @@ import {
   Layers,
   Volume2,
   Sliders,
-  Sparkles,
   ChevronRight,
   ChevronLeft,
   Info,
-  ShieldCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { PromptItem, BalanceDashboardResponse, IngestionResponse, SplitProposalResponse } from '@/lib/types';
+import { PromptItem, BalanceDashboardResponse, IngestionResponse } from '@/lib/types';
+
+type DeviceCategory = 'laptop' | 'mobile' | 'external_microphone' | 'other';
 
 export default function PhysicalDomainCollectionPage() {
   const [activeTab, setActiveTab] = useState<'genuine_capture' | 'synthetic_recapture' | 'balance_dashboard'>('genuine_capture');
 
   // Metadata Form State
   const [speakerId, setSpeakerId] = useState('HUMAN_SPK_05');
-  const [deviceCategory, setDeviceCategory] = useState<'laptop' | 'mobile' | 'external_microphone' | 'other'>('laptop');
+  const [deviceCategory, setDeviceCategory] = useState<DeviceCategory>('laptop');
   const [deviceName, setDeviceName] = useState('');
   const [roomEnv, setRoomEnv] = useState('quiet_office');
-  const [sessionId, setSessionId] = useState('');
+  const [sessionId, setSessionId] = useState(() => {
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const rand = Math.floor(100 + Math.random() * 900);
+    return `SESS_${dateStr}_${rand}`;
+  });
 
   // Synthetic Recapture Specifics
   const [generatorName, setGeneratorName] = useState('ElevenLabs');
@@ -44,8 +48,8 @@ export default function PhysicalDomainCollectionPage() {
   // Recording State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [audioConstraints, setAudioConstraints] = useState<Record<string, any>>({});
-  const [appliedSettings, setAppliedSettings] = useState<Record<string, any>>({});
+  const [audioConstraints, setAudioConstraints] = useState<MediaTrackConstraints>({});
+  const [appliedSettings, setAppliedSettings] = useState<MediaTrackSettings>({});
   const [mimeType, setMimeType] = useState<string>('');
   const [lastUploadedSample, setLastUploadedSample] = useState<IngestionResponse | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -53,50 +57,52 @@ export default function PhysicalDomainCollectionPage() {
   // Dashboard State
   const [dashboard, setDashboard] = useState<BalanceDashboardResponse | null>(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
-  const [splitProposal, setSplitProposal] = useState<SplitProposalResponse | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    // Generate default session ID
-    setSessionId(`SESS_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}_${Math.floor(100 + Math.random() * 900)}`);
-
-    // Fetch standardized prompt set via API client
-    api.getCollectionPrompts()
-      .then((data) => {
-        if (data && data.prompts) {
-          setPrompts(data.prompts);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load prompts:', err);
-      });
-
-    fetchDashboard();
-  }, []);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async () => {
     setIsLoadingDashboard(true);
     try {
       const data = await api.getCollectionBalanceDashboard();
       setDashboard(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard:', err);
     } finally {
       setIsLoadingDashboard(false);
     }
-  };
+  }, []);
 
-  const handleProposeSplit = async () => {
-    try {
-      const prop = await api.proposeCollectionSplit();
-      setSplitProposal(prop);
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: `Split proposal error: ${err.message}` });
-    }
-  };
+  useEffect(() => {
+    let isCancelled = false;
+
+    // Fetch standardized prompt set via API client
+    api.getCollectionPrompts()
+      .then((data) => {
+        if (!isCancelled && data && data.prompts) {
+          setPrompts(data.prompts);
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('Failed to load prompts:', err);
+      });
+
+    // Fetch initial balance dashboard without synchronous setState in effect body
+    api.getCollectionBalanceDashboard()
+      .then((data) => {
+        if (!isCancelled) {
+          setDashboard(data);
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('Failed to load dashboard:', err);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const startRecording = async () => {
     setStatusMessage(null);
@@ -105,20 +111,18 @@ export default function PhysicalDomainCollectionPage() {
     setMimeType('');
     audioChunksRef.current = [];
 
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 48000,
-        channelCount: 1,
-      },
+    const audioConstraintsConfig: MediaTrackConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      sampleRate: 48000,
+      channelCount: 1,
     };
 
-    setAudioConstraints(constraints.audio as Record<string, any>);
+    setAudioConstraints(audioConstraintsConfig);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraintsConfig });
       const audioTrack = stream.getAudioTracks()[0];
       if (audioTrack) {
         const settings = audioTrack.getSettings ? audioTrack.getSettings() : {};
@@ -173,8 +177,9 @@ export default function PhysicalDomainCollectionPage() {
       timerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: `Microphone access failed: ${err.message}` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ type: 'error', text: `Microphone access failed: ${message}` });
     }
   };
 
@@ -225,8 +230,9 @@ export default function PhysicalDomainCollectionPage() {
       setLastUploadedSample(data);
       setStatusMessage({ type: 'success', text: `Sample ${data.sample_id} ingested successfully (${data.duration_seconds}s). Quality check passed.` });
       fetchDashboard();
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ type: 'error', text: `Upload failed: ${message}` });
     }
   };
 
@@ -352,7 +358,7 @@ export default function PhysicalDomainCollectionPage() {
                   <label className="block text-slate-400 font-mono mb-1">Capture Device Category</label>
                   <select
                     value={deviceCategory}
-                    onChange={(e) => setDeviceCategory(e.target.value as any)}
+                    onChange={(e) => setDeviceCategory(e.target.value as DeviceCategory)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
                   >
                     <option value="laptop">Laptop (Integrated Array)</option>
@@ -396,6 +402,26 @@ export default function PhysicalDomainCollectionPage() {
                         value={generatorName}
                         onChange={(e) => setGeneratorName(e.target.value)}
                         placeholder="e.g. ElevenLabs, Tacotron"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-mono mb-1">Generator Version</label>
+                      <input
+                        type="text"
+                        value={generatorVersion}
+                        onChange={(e) => setGeneratorVersion(e.target.value)}
+                        placeholder="e.g. v2"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-mono mb-1">Attack ID</label>
+                      <input
+                        type="text"
+                        value={attackId}
+                        onChange={(e) => setAttackId(e.target.value)}
+                        placeholder="e.g. zero_shot_clone"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                       />
                     </div>
@@ -619,7 +645,7 @@ export default function PhysicalDomainCollectionPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {Object.entries(dashboard.per_human_speaker).map(([spk, data]: [string, any]) => (
+                      {Object.entries(dashboard.per_human_speaker).map(([spk, data]) => (
                         <tr key={spk} className="hover:bg-slate-800/30">
                           <td className="py-2.5 font-bold text-slate-200">{spk}</td>
                           <td className="py-2.5 text-emerald-400">{data.genuine_sample_count}</td>
@@ -651,7 +677,7 @@ export default function PhysicalDomainCollectionPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {Object.entries(dashboard.per_device_category).map(([dev, counts]: [string, any]) => (
+                      {Object.entries(dashboard.per_device_category).map(([dev, counts]) => (
                         <tr key={dev} className="hover:bg-slate-800/30">
                           <td className="py-2.5 font-bold text-slate-200 capitalize">{dev}</td>
                           <td className="py-2.5 text-emerald-400">{counts.real_count}</td>

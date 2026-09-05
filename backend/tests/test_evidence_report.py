@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.models.detection import DetectionCase, DetectionResult
 from app.schemas.detection import PredictionEnum, RiskLevelEnum, ActionEnum

@@ -19,8 +19,13 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from ml_eval.microphone.evaluate_mic_baseline import compute_eer, compute_cohens_d, compute_distribution_stats
 MANIFEST_PATH = ROOT_DIR / "ml_data/simulated_channel_benchmark/manifests/simulated_channel_manifest.json"
+PHYS_MANIFEST_PATH = ROOT_DIR / "ml_data/physical_domain/manifests/physical_domain_manifest.json"
 
 
+@pytest.mark.skipif(
+    not MANIFEST_PATH.exists(),
+    reason="Simulated channel benchmark manifest not found at ml_data/simulated_channel_benchmark/manifests/simulated_channel_manifest.json",
+)
 class TestMicrophoneDatasetIntegrity:
     """Validates dataset structure, speaker disjointness, and provenance schema."""
 
@@ -98,14 +103,17 @@ class TestMicrophoneDatasetIntegrity:
                 assert item[field] is not None, f"Null field '{field}' in sample {item.get('sample_id')}"
 
 
+@pytest.mark.skipif(
+    not PHYS_MANIFEST_PATH.exists(),
+    reason="Physical domain dataset manifest not found at ml_data/physical_domain/manifests/physical_domain_manifest.json",
+)
 class TestPhysicalDomainDatasetIntegrity:
     """Validates physical domain dataset structure, strict human/synthetic speaker disjointness, and zero leakage."""
 
     @pytest.fixture
     def physical_manifest(self):
-        phys_path = ROOT_DIR / "ml_data/physical_domain/manifests/physical_domain_manifest.json"
-        assert phys_path.exists(), f"Physical manifest missing at {phys_path}"
-        with open(phys_path, "r", encoding="utf-8") as f:
+        assert PHYS_MANIFEST_PATH.exists(), f"Physical manifest missing at {PHYS_MANIFEST_PATH}"
+        with open(PHYS_MANIFEST_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
 
     def test_physical_manifest_structure(self, physical_manifest):

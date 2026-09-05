@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from pathlib import Path
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 from app.ml.aasist_inference import (
     segment_audio_windows,
@@ -261,6 +262,8 @@ def test_300s_maximum_audio_duration_and_window_limit_safety():
 
     # 2. Rejection of audio > 300s
     engine = AASISTInferenceEngine()
+    engine.is_loaded = True
+    engine.model = MagicMock()
     wav_301s = np.zeros(301 * sr, dtype=np.float32)
     with pytest.raises(ValueError, match="exceeds maximum allowed limit"):
         engine.predict_audio_multiwindow(wav_301s, hop_length=H_75)
