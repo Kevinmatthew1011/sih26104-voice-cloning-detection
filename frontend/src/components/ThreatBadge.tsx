@@ -37,9 +37,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-            } bg-emerald-950/40 text-emerald-300 border-emerald-500/30 ${className}`}
+            } bg-emerald-50 text-emerald-800 border-emerald-200 shadow-xs ${className}`}
           >
-            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-emerald-400'} />}
+            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-emerald-600'} />}
             {reliableLabel}
           </span>
         );
@@ -48,9 +48,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-            } bg-amber-950/60 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
+            } bg-amber-50 text-amber-900 border-amber-300 shadow-xs ${className}`}
           >
-            {showIcon && <Sliders className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-400'} />}
+            {showIcon && <Sliders className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-600'} />}
             Degraded Channel
           </span>
         );
@@ -59,9 +59,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-            } bg-rose-950/60 text-rose-300 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.15)] ${className}`}
+            } bg-rose-50 text-rose-800 border-rose-200 shadow-xs ${className}`}
           >
-            {showIcon && <AlertOctagon className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-rose-400'} />}
+            {showIcon && <AlertOctagon className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-rose-600'} />}
             Insufficient Speech
           </span>
         );
@@ -75,9 +75,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
         <span
           className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
             size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-          } bg-amber-950/40 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
+          } bg-amber-50 text-amber-900 border-amber-200 shadow-xs ${className}`}
         >
-          {showIcon && <Mic className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-400'} />}
+          {showIcon && <Mic className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-amber-600'} />}
           Mic Domain: Unvalidated
         </span>
       );
@@ -86,9 +86,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
         <span
           className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
             size === 'sm' ? 'px-2 py-0.5 text-[10px]' : size === 'lg' ? 'px-3 py-1.5 text-xs' : 'px-2.5 py-1 text-xs'
-          } bg-blue-950/40 text-blue-300 border-blue-500/30 ${className}`}
+          } bg-blue-50 text-blue-800 border-blue-200 shadow-xs ${className}`}
         >
-          {showIcon && <FileAudio className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-blue-400'} />}
+          {showIcon && <FileAudio className={size === 'lg' ? 'w-3.5 h-3.5' : 'w-3 h-3 text-blue-600'} />}
           Standard File Domain
         </span>
       );
@@ -103,9 +103,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-red-950/60 text-red-400 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)] ${className}`}
+            } bg-red-50 text-red-700 border-red-300 shadow-xs ${className}`}
           >
-            {showIcon && <Lock className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <Lock className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-red-600'} />}
             BLOCK
           </span>
         );
@@ -114,9 +114,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-amber-950/60 text-amber-400 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.2)] ${className}`}
+            } bg-amber-50 text-amber-800 border-amber-300 shadow-xs ${className}`}
           >
-            {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-amber-600'} />}
             VERIFY (MFA)
           </span>
         );
@@ -125,9 +125,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-bold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-emerald-950/60 text-emerald-400 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${className}`}
+            } bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs ${className}`}
           >
-            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <CheckCircle2 className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-emerald-600'} />}
             ALLOW
           </span>
         );
@@ -136,9 +136,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-slate-900 text-slate-400 border-slate-700 ${className}`}
+            } bg-slate-100 text-slate-700 border-slate-200 ${className}`}
           >
-            {showIcon && <HelpCircle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <HelpCircle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-slate-500'} />}
             Not Evaluated
           </span>
         );
@@ -150,33 +150,33 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
       case 'synthetic':
         return (
           <span
-            className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-red-950/40 text-red-400 border-red-500/30 shadow-[0_0_12px_rgba(239,68,68,0.15)] ${className}`}
+            } bg-red-50 text-red-700 border-red-200 shadow-xs ${className}`}
           >
-            {showIcon && <ShieldAlert className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <ShieldAlert className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-red-600'} />}
             Synthetic
           </span>
         );
       case 'real':
         return (
           <span
-            className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-emerald-950/40 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)] ${className}`}
+            } bg-emerald-50 text-emerald-800 border-emerald-200 shadow-xs ${className}`}
           >
-            {showIcon && <ShieldCheck className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <ShieldCheck className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-emerald-600'} />}
             Real Speech
           </span>
         );
       case 'replay':
         return (
           <span
-            className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
+            className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-amber-950/40 text-amber-400 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)] ${className}`}
+            } bg-amber-50 text-amber-800 border-amber-200 shadow-xs ${className}`}
           >
-            {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <AlertTriangle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-amber-600'} />}
             Replay (Planned)
           </span>
         );
@@ -186,9 +186,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-md uppercase tracking-wider border ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'
-            } bg-slate-900 text-slate-300 border-slate-700 ${className}`}
+            } bg-slate-100 text-slate-700 border-slate-200 ${className}`}
           >
-            {showIcon && <HelpCircle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5'} />}
+            {showIcon && <HelpCircle className={size === 'lg' ? 'w-4 h-4' : 'w-3.5 h-3.5 text-slate-500'} />}
             Inconclusive
           </span>
         );
@@ -203,9 +203,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded uppercase tracking-wider ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
-            } bg-red-500/10 text-red-400 border border-red-500/20 ${className}`}
+            } bg-red-50 text-red-700 border border-red-200 shadow-xs ${className}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
             High Risk
           </span>
         );
@@ -214,9 +214,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded uppercase tracking-wider ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
-            } bg-amber-500/10 text-amber-400 border border-amber-500/20 ${className}`}
+            } bg-amber-50 text-amber-800 border border-amber-200 shadow-xs ${className}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
             Medium Risk
           </span>
         );
@@ -225,9 +225,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded uppercase tracking-wider ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
-            } bg-slate-900 text-slate-400 border border-slate-700 ${className}`}
+            } bg-slate-100 text-slate-600 border border-slate-200 ${className}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
             Risk Not Assessed
           </span>
         );
@@ -236,9 +236,9 @@ export const ThreatBadge: React.FC<ThreatBadgeProps> = ({
           <span
             className={`inline-flex items-center gap-1.5 font-mono font-semibold rounded uppercase tracking-wider ${
               size === 'sm' ? 'px-2 py-0.5 text-xs' : size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs'
-            } bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 ${className}`}
+            } bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs ${className}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
             Low Risk
           </span>
         );

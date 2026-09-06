@@ -1,3 +1,4 @@
+from starlette.concurrency import run_in_threadpool
 import logging
 from typing import Optional
 from uuid import UUID
@@ -32,6 +33,11 @@ from app.services.detection.factory import get_detection_service
 from app.services.decision_engine import SecurityDecisionEngine
 from app.services.report_service import AuditReportBuilder
 from app.services.detection.streaming_detector import StreamingAASISTDetector
+from app.services.detection.aasist_service import AASISTDetectionService
+from app.services.scam_intent_service import get_scam_intent_service
+from app.services.multimodal_risk_engine import get_multimodal_risk_engine
+from app.services.speaker_verification_service import get_speaker_verification_service
+from app.schemas.multimodal import AcousticEvidence, SemanticEvidence, SpeakerEvidence
 from app.core.rate_limiter import rate_limit_detection, rate_limit_report
 
 logger = logging.getLogger("app.detections")
@@ -493,6 +499,64 @@ async def websocket_detection_endpoint(
     detector = StreamingAASISTDetector(engine_type=engine)
     stream_format = format
 
+    # Stateful multimodal tracking for the live call session
+    active_transcript: str = ""
+    claimed_speaker_id: Optional[str] = None
+    latest_acoustic_result: Optional[dict] = None
+
+    def compute_current_multimodal() -> dict:
+        acoustic_ev = None
+        if latest_acoustic_result:
+            p = latest_acoustic_result.get("synthetic_probability")
+            status_str = "synthetic_detected" if p is not None and p >= 0.50 else "likely_genuine"
+            acoustic_ev = AcousticEvidence(
+                status=status_str,
+                synthetic_probability=p,
+                confidence=latest_acoustic_result.get("confidence", p),
+                engine=detector.engine_type,
+                channel_reliability="UNVALIDATED_WEBRTC",
+            )
+        semantic_ev = None
+        if active_transcript:
+            scam_res = get_scam_intent_service().analyze_text(active_transcript)
+            semantic_ev = SemanticEvidence(
+                risk=scam_res.risk_level,
+                scam_probability=scam_res.scam_probability,
+                primary_intent=scam_res.primary_intent,
+                reasons=scam_res.detected_triggers,
+            )
+        speaker_ev = None
+        if claimed_speaker_id:
+            if len(detector.pcm_buffer) >= 16000:
+                spk_res = get_speaker_verification_service().verify(claimed_speaker_id, detector.pcm_buffer)
+                speaker_ev = SpeakerEvidence(
+                    state=spk_res.state.value,
+                    claimed_speaker_id=claimed_speaker_id,
+                    similarity_score=spk_res.similarity_score,
+                    explanation=spk_res.explanation,
+                )
+            else:
+                speaker_ev = SpeakerEvidence(
+                    state="INSUFFICIENT_AUDIO",
+                    claimed_speaker_id=claimed_speaker_id,
+                    explanation="Insufficient audio duration for biometric verification.",
+                )
+
+        mm_eval = get_multimodal_risk_engine().evaluate(
+            acoustic=acoustic_ev,
+            semantic=semantic_ev,
+            speaker=speaker_ev,
+        )
+        return {
+            "type": "multimodal_update",
+            "overall_risk": mm_eval.overall_risk.value,
+            "recommended_action": mm_eval.recommended_action.value,
+            "confidence": mm_eval.confidence,
+            "headline": mm_eval.headline,
+            "explanation": mm_eval.explanation,
+            "evidence_layers": mm_eval.evidence_layers,
+        }
+
     # Send initial connection acknowledgment
     await websocket.send_text(
         json.dumps({
@@ -539,13 +603,28 @@ async def websocket_detection_endpoint(
                     await websocket.send_text(json.dumps(status_ev))
                     continue
 
+                if action in ("transcript", "update_context"):
+                    if "transcript" in payload:
+                        active_transcript = str(payload["transcript"])
+                    if "speaker_id" in payload:
+                        claimed_speaker_id = str(payload["speaker_id"]) if payload["speaker_id"] else None
+                    mm_ev = await run_in_threadpool(compute_current_multimodal)
+                    await websocket.send_text(json.dumps(mm_ev))
+                    continue
+
             # Handle binary audio chunk
             if "bytes" in message and message["bytes"]:
                 chunk = message["bytes"]
                 try:
-                    events = detector.process_chunk(chunk, specified_format=stream_format)
+                    events = await run_in_threadpool(detector.process_chunk, chunk, specified_format=stream_format)
                     for ev in events:
                         await websocket.send_text(json.dumps(ev))
+                        if ev.get("type") == "acoustic_update":
+                            latest_acoustic_result = ev
+                            # Emit synchronized multimodal risk update if multimodal context is active
+                            if active_transcript or claimed_speaker_id:
+                                mm_ev = await run_in_threadpool(compute_current_multimodal)
+                                await websocket.send_text(json.dumps(mm_ev))
                 except ValueError as ve:
                     logger.warning("Invalid audio payload received on WebSocket: %s", ve)
                     await websocket.send_text(

@@ -343,24 +343,24 @@ export default function PhysicalDomainCollectionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 py-10 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 DEVELOPMENT TOOL
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
                 PHASE 5 DATASET READINESS
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-              <Radio className="w-8 h-8 text-emerald-400 animate-pulse" />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+              <Radio className="w-8 h-8 text-emerald-600 animate-pulse" />
               Physical-Domain Acoustic Data Collection
             </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-2xl font-mono">
+            <p className="text-sm text-slate-600 mt-1 max-w-2xl font-mono">
               Target: N=300 balanced acoustic samples (150 Genuine + 150 Physical Replay across &ge;15 speakers) with strict provenance and speaker disjointness.
             </p>
           </div>
@@ -368,7 +368,7 @@ export default function PhysicalDomainCollectionPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={fetchDashboard}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300 transition-all"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-mono text-slate-700 shadow-xs transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDashboard ? 'animate-spin' : ''}`} /> Refresh Stats
             </button>
@@ -378,56 +378,56 @@ export default function PhysicalDomainCollectionPage() {
         {/* Target Progress Bar Cards */}
         {dashboard && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-emerald-400" /> Total Samples</span>
-                <span className="text-slate-200 font-bold">{dashboard.total_samples} / {dashboard.target_total || 300}</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2 shadow-xs">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-600">
+                <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-emerald-600" /> Total Samples</span>
+                <span className="text-slate-900 font-bold">{dashboard.total_samples} / {dashboard.target_total || 300}</span>
               </div>
-              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
                 <div
-                  className="bg-emerald-500 h-full transition-all duration-500"
+                  className="bg-emerald-600 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.round((dashboard.total_samples / (dashboard.target_total || 300)) * 100))}%` }}
                 />
               </div>
               <p className="text-[11px] font-mono text-slate-500">{Math.round((dashboard.total_samples / (dashboard.target_total || 300)) * 100)}% of collection target</p>
             </div>
 
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5"><Mic className="w-3.5 h-3.5 text-emerald-400" /> Genuine Mic</span>
-                <span className="text-emerald-400 font-bold">{dashboard.real_sample_count} / {dashboard.target_genuine || 150}</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2 shadow-xs">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-600">
+                <span className="flex items-center gap-1.5"><Mic className="w-3.5 h-3.5 text-emerald-600" /> Genuine Mic</span>
+                <span className="text-emerald-700 font-bold">{dashboard.real_sample_count} / {dashboard.target_genuine || 150}</span>
               </div>
-              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
                 <div
-                  className="bg-emerald-400 h-full transition-all duration-500"
+                  className="bg-emerald-600 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.round((dashboard.real_sample_count / (dashboard.target_genuine || 150)) * 100))}%` }}
                 />
               </div>
               <p className="text-[11px] font-mono text-slate-500">{Math.round((dashboard.real_sample_count / (dashboard.target_genuine || 150)) * 100)}% of genuine target</p>
             </div>
 
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-indigo-400" /> Physical Replay</span>
-                <span className="text-indigo-400 font-bold">{dashboard.physical_replay_count || 0} / {dashboard.target_replay || 150}</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2 shadow-xs">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-600">
+                <span className="flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-indigo-600" /> Physical Replay</span>
+                <span className="text-indigo-700 font-bold">{dashboard.physical_replay_count || 0} / {dashboard.target_replay || 150}</span>
               </div>
-              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
                 <div
-                  className="bg-indigo-400 h-full transition-all duration-500"
+                  className="bg-indigo-600 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.round(((dashboard.physical_replay_count || 0) / (dashboard.target_replay || 150)) * 100))}%` }}
                 />
               </div>
               <p className="text-[11px] font-mono text-slate-500">{Math.round(((dashboard.physical_replay_count || 0) / (dashboard.target_replay || 150)) * 100)}% of replay target</p>
             </div>
 
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-400" /> Human Speakers</span>
-                <span className="text-amber-400 font-bold">{dashboard.human_speaker_count} / {dashboard.target_speakers || 15}</span>
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2 shadow-xs">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-600">
+                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-600" /> Human Speakers</span>
+                <span className="text-amber-700 font-bold">{dashboard.human_speaker_count} / {dashboard.target_speakers || 15}</span>
               </div>
-              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
                 <div
-                  className="bg-amber-400 h-full transition-all duration-500"
+                  className="bg-amber-500 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, Math.round((dashboard.human_speaker_count / (dashboard.target_speakers || 15)) * 100))}%` }}
                 />
               </div>
@@ -437,7 +437,7 @@ export default function PhysicalDomainCollectionPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-slate-800">
+        <div className="flex gap-2 border-b border-slate-200">
           <button
             onClick={() => {
               setActiveTab('genuine_capture');
@@ -445,8 +445,8 @@ export default function PhysicalDomainCollectionPage() {
             }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'genuine_capture'
-                ? 'bg-slate-900 border-slate-700 text-emerald-400 border-b-2 border-b-emerald-500'
-                : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-white border-slate-200 text-emerald-700 border-b-2 border-b-emerald-600 shadow-xs'
+                : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Mic className="w-4 h-4" /> Mode A: Genuine Microphone Speech
@@ -458,8 +458,8 @@ export default function PhysicalDomainCollectionPage() {
             }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'synthetic_recapture'
-                ? 'bg-slate-900 border-slate-700 text-indigo-400 border-b-2 border-b-indigo-500'
-                : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-white border-slate-200 text-indigo-700 border-b-2 border-b-indigo-600 shadow-xs'
+                : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Volume2 className="w-4 h-4" /> Mode B: Synthetic Acoustic Replay
@@ -471,8 +471,8 @@ export default function PhysicalDomainCollectionPage() {
             }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'balance_dashboard'
-                ? 'bg-slate-900 border-slate-700 text-amber-400 border-b-2 border-b-amber-500'
-                : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-white border-slate-200 text-amber-700 border-b-2 border-b-amber-600 shadow-xs'
+                : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Layers className="w-4 h-4" /> Balance Dashboard & Export Splits
@@ -484,18 +484,18 @@ export default function PhysicalDomainCollectionPage() {
           <div
             className={`p-4 rounded-xl border flex items-center gap-3 text-xs font-mono ${
               statusMessage.type === 'success'
-                ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : statusMessage.type === 'error'
-                ? 'bg-red-950/40 border-red-500/30 text-red-300'
-                : 'bg-blue-950/40 border-blue-500/30 text-blue-300'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : 'bg-indigo-50 border-indigo-200 text-indigo-800'
             }`}
           >
             {statusMessage.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : statusMessage.type === 'error' ? (
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             ) : (
-              <Info className="w-4 h-4 text-blue-400 shrink-0" />
+              <Info className="w-4 h-4 text-indigo-600 shrink-0" />
             )}
             <span>{statusMessage.text}</span>
           </div>
@@ -505,45 +505,45 @@ export default function PhysicalDomainCollectionPage() {
         {activeTab !== 'balance_dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column: Metadata Controls */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h2 className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-emerald-400" /> Acoustic Provenance
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
+              <h2 className="text-xs font-mono font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-emerald-600" /> Acoustic Provenance
               </h2>
 
               <div className="space-y-3 text-xs">
                 {activeTab === 'genuine_capture' ? (
                   <div>
-                    <label className="block text-slate-400 font-mono mb-1">
-                      Human Speaker ID <span className="text-emerald-400">*</span>
+                    <label className="block text-slate-700 font-mono mb-1">
+                      Human Speaker ID <span className="text-emerald-600">*</span>
                     </label>
                     <input
                       type="text"
                       value={speakerId}
                       onChange={(e) => setSpeakerId(e.target.value)}
                       placeholder="e.g. HUMAN_SPK_01"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
                     />
                     <p className="text-[10px] font-mono text-slate-500 mt-1">Pseudonymous identifier (&ge;15 unique speakers required).</p>
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-slate-400 font-mono mb-1">Source Cloned Speaker / Voice</label>
+                    <label className="block text-slate-700 font-mono mb-1">Source Cloned Speaker / Voice</label>
                     <input
                       type="text"
                       value={speakerId}
                       onChange={(e) => setSpeakerId(e.target.value)}
                       placeholder="e.g. CLONED_TARGET_01"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Microphone Device Category</label>
+                  <label className="block text-slate-700 font-mono mb-1">Microphone Device Category</label>
                   <select
                     value={deviceCategory}
                     onChange={(e) => setDeviceCategory(e.target.value as DeviceCategory)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
                   >
                     <option value="laptop">Laptop Integrated Array</option>
                     <option value="mobile">Smartphone Primary MEMS</option>
@@ -553,22 +553,22 @@ export default function PhysicalDomainCollectionPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Microphone Hardware Name</label>
+                  <label className="block text-slate-700 font-mono mb-1">Microphone Hardware Name</label>
                   <input
                     type="text"
                     value={deviceName}
                     onChange={(e) => setDeviceName(e.target.value)}
                     placeholder="Auto-detected from browser"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono text-[11px]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono text-[11px] focus:outline-none focus:border-emerald-600 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Recording Distance</label>
+                  <label className="block text-slate-700 font-mono mb-1">Recording Distance</label>
                   <select
                     value={distanceCategory}
                     onChange={(e) => setDistanceCategory(e.target.value as DistanceCategory)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
                   >
                     <option value="close_10cm">Close (~10 cm, mouth proximity)</option>
                     <option value="medium_30cm">Medium (~30 cm, desk / handheld)</option>
@@ -577,11 +577,11 @@ export default function PhysicalDomainCollectionPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Room Environment</label>
+                  <label className="block text-slate-700 font-mono mb-1">Room Environment</label>
                   <select
                     value={roomEnv}
                     onChange={(e) => setRoomEnv(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
                   >
                     <option value="quiet_office">Quiet Office (Low Noise)</option>
                     <option value="living_room">Living Room (Moderate Reverberation)</option>
@@ -591,42 +591,42 @@ export default function PhysicalDomainCollectionPage() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Capture Session ID</label>
+                  <label className="block text-slate-700 font-mono mb-1">Capture Session ID</label>
                   <input
                     type="text"
                     value={sessionId}
                     onChange={(e) => setSessionId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white"
                   />
                 </div>
 
                 {/* Synthetic Replay Controls (Mode B) */}
                 {activeTab === 'synthetic_recapture' && (
-                  <div className="pt-3 border-t border-slate-800 space-y-3">
-                    <h3 className="text-xs font-mono font-bold text-indigo-400 uppercase flex items-center gap-1.5">
+                  <div className="pt-3 border-t border-slate-200 space-y-3">
+                    <h3 className="text-xs font-mono font-bold text-indigo-700 uppercase flex items-center gap-1.5">
                       <Volume2 className="w-3.5 h-3.5" /> Replay Transducer & Generator
                     </h3>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">
-                        Playback Loudspeaker <span className="text-indigo-400">*</span>
+                      <label className="block text-slate-700 font-mono mb-1">
+                        Playback Loudspeaker <span className="text-indigo-600">*</span>
                       </label>
                       <input
                         type="text"
                         value={playbackDevice}
                         onChange={(e) => setPlaybackDevice(e.target.value)}
                         placeholder="e.g. Pixel 8 Phone Speaker, JBL Flip"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       />
                       <p className="text-[10px] font-mono text-slate-500 mt-1">Loudspeaker transducer that physically emits the synthetic audio.</p>
                     </div>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Playback Transducer Category</label>
+                      <label className="block text-slate-700 font-mono mb-1">Playback Transducer Category</label>
                       <select
                         value={playbackDeviceCategory}
                         onChange={(e) => setPlaybackDeviceCategory(e.target.value as PlaybackDeviceCategory)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       >
                         <option value="smartphone_loudspeaker">Smartphone Loudspeaker (MEMS / Micro-driver)</option>
                         <option value="laptop_speakers">Laptop Internal Speakers</option>
@@ -637,48 +637,48 @@ export default function PhysicalDomainCollectionPage() {
                     </div>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">
-                        Generator Model <span className="text-indigo-400">*</span>
+                      <label className="block text-slate-700 font-mono mb-1">
+                        Generator Model <span className="text-indigo-600">*</span>
                       </label>
                       <input
                         type="text"
                         value={generatorName}
                         onChange={(e) => setGeneratorName(e.target.value)}
                         placeholder="e.g. ElevenLabs, Tacotron, Bark"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Generator Version</label>
+                      <label className="block text-slate-700 font-mono mb-1">Generator Version</label>
                       <input
                         type="text"
                         value={generatorVersion}
                         onChange={(e) => setGeneratorVersion(e.target.value)}
                         placeholder="e.g. v2, turbo"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Attack Algorithm ID</label>
+                      <label className="block text-slate-700 font-mono mb-1">Attack Algorithm ID</label>
                       <input
                         type="text"
                         value={attackId}
                         onChange={(e) => setAttackId(e.target.value)}
                         placeholder="e.g. zero_shot_clone, vc_sv"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Parent Source Utterance ID</label>
+                      <label className="block text-slate-700 font-mono mb-1">Parent Source Utterance ID</label>
                       <input
                         type="text"
                         value={parentSourceId}
                         onChange={(e) => setParentSourceId(e.target.value)}
                         placeholder="e.g. LA_E_1234567 or synth_clip_01"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono focus:outline-none focus:border-indigo-600 focus:bg-white"
                       />
                       <p className="text-[10px] font-mono text-slate-500 mt-1">Used to guarantee parent source disjointness across splits.</p>
                     </div>
@@ -691,13 +691,13 @@ export default function PhysicalDomainCollectionPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Prompt Carousel */}
               {prompts.length > 0 && (
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 relative overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 relative overflow-hidden shadow-xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
                         {prompts[currentPromptIdx].prompt_id}
                       </span>
-                      <span className="text-xs font-mono text-slate-400">
+                      <span className="text-xs font-mono text-slate-500">
                         ({currentPromptIdx + 1} of {prompts.length}) &bull; {prompts[currentPromptIdx].category}
                       </span>
                     </div>
@@ -705,14 +705,14 @@ export default function PhysicalDomainCollectionPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setCurrentPromptIdx((prev) => (prev > 0 ? prev - 1 : prompts.length - 1))}
-                        className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
                         title="Previous prompt"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setCurrentPromptIdx((prev) => (prev < prompts.length - 1 ? prev + 1 : 0))}
-                        className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
                         title="Next prompt"
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -721,7 +721,7 @@ export default function PhysicalDomainCollectionPage() {
                   </div>
 
                   <div className="py-2">
-                    <p className="text-lg font-medium text-slate-100 leading-relaxed font-mono">
+                    <p className="text-lg font-medium text-slate-900 leading-relaxed font-mono">
                       &ldquo;{prompts[currentPromptIdx].text}&rdquo;
                     </p>
                     <p className="text-xs font-mono text-slate-500 mt-2">
@@ -732,38 +732,38 @@ export default function PhysicalDomainCollectionPage() {
               )}
 
               {/* Live Recorder Box */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-6">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-6 shadow-xs">
                 <div className="relative flex items-center justify-center">
                   <div
                     className={`w-24 h-24 rounded-full flex items-center justify-center border transition-all ${
                       isRecording
-                        ? 'bg-red-500/20 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)] animate-pulse'
+                        ? 'bg-rose-50 border-rose-300 shadow-[0_0_25px_rgba(244,63,94,0.2)] animate-pulse'
                         : previewBlob
-                        ? 'bg-emerald-500/20 border-emerald-500/50'
-                        : 'bg-slate-950 border-slate-700'
+                        ? 'bg-emerald-50 border-emerald-300'
+                        : 'bg-slate-100 border-slate-200'
                     }`}
                   >
                     {isRecording ? (
-                      <Mic className="w-10 h-10 text-red-400" />
+                      <Mic className="w-10 h-10 text-rose-600" />
                     ) : previewBlob ? (
-                      <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                      <CheckCircle2 className="w-10 h-10 text-emerald-600" />
                     ) : (
                       <Mic className="w-10 h-10 text-slate-400" />
                     )}
                   </div>
                   {isRecording && (
                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600"></span>
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <span className="font-mono text-3xl font-bold text-slate-100">
+                  <span className="font-mono text-3xl font-bold text-slate-900">
                     {isRecording ? formatSecs(recordingSeconds) : previewBlob ? 'Captured' : '00:00'}
                   </span>
-                  <p className="text-xs font-mono text-slate-400 mt-1">
+                  <p className="text-xs font-mono text-slate-600 mt-1">
                     {isRecording
                       ? 'Recording acoustic stream & hardware telemetry...'
                       : previewBlob
@@ -776,8 +776,8 @@ export default function PhysicalDomainCollectionPage() {
 
                 {/* Preview Audio Controls (when captured) */}
                 {previewUrl && (
-                  <div className="w-full max-w-md bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
-                    <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block text-left">
+                  <div className="w-full max-w-md bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                    <span className="text-xs font-mono text-slate-600 uppercase tracking-wider block text-left font-medium">
                       Playback Preview:
                     </span>
                     <audio controls src={previewUrl} className="w-full rounded-lg" />
@@ -789,7 +789,7 @@ export default function PhysicalDomainCollectionPage() {
                   {!isRecording && !previewBlob && (
                     <button
                       onClick={startRecording}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-xs"
                     >
                       <Mic className="w-4 h-4" /> Start Recording
                     </button>
@@ -798,7 +798,7 @@ export default function PhysicalDomainCollectionPage() {
                   {isRecording && (
                     <button
                       onClick={stopRecording}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-xs"
                     >
                       <Square className="w-4 h-4" /> Stop Recording
                     </button>
@@ -809,14 +809,14 @@ export default function PhysicalDomainCollectionPage() {
                       <button
                         onClick={handleRetake}
                         disabled={isSubmitting}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-mono text-xs font-semibold uppercase tracking-wider transition-all"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-xs"
                       >
                         <RotateCcw className="w-4 h-4" /> Retake
                       </button>
                       <button
                         onClick={handleSubmitRecording}
                         disabled={isSubmitting}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-xs"
                       >
                         <UploadCloud className={`w-4 h-4 ${isSubmitting ? 'animate-bounce' : ''}`} />
                         {isSubmitting ? 'Submitting...' : 'Submit Recording'}
@@ -827,18 +827,18 @@ export default function PhysicalDomainCollectionPage() {
 
                 {/* Telemetry Chips */}
                 {appliedSettings.sampleRate && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full pt-4 border-t border-slate-800 text-[11px] font-mono text-slate-400">
-                    <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      Rate: <span className="text-emerald-400">{appliedSettings.sampleRate} Hz</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full pt-4 border-t border-slate-200 text-[11px] font-mono text-slate-600">
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      Rate: <span className="text-emerald-700 font-semibold">{appliedSettings.sampleRate} Hz</span>
                     </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      Distance: <span className="text-emerald-400">{distanceCategory.replace('_', ' ')}</span>
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      Distance: <span className="text-emerald-700 font-semibold">{distanceCategory.replace('_', ' ')}</span>
                     </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      EchoCancel: <span className="text-emerald-400">{String(appliedSettings.echoCancellation ?? 'true')}</span>
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      EchoCancel: <span className="text-emerald-700 font-semibold">{String(appliedSettings.echoCancellation ?? 'true')}</span>
                     </div>
-                    <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      NoiseSupp: <span className="text-emerald-400">{String(appliedSettings.noiseSuppression ?? 'true')}</span>
+                    <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      NoiseSupp: <span className="text-emerald-700 font-semibold">{String(appliedSettings.noiseSuppression ?? 'true')}</span>
                     </div>
                   </div>
                 )}
@@ -846,14 +846,14 @@ export default function PhysicalDomainCollectionPage() {
 
               {/* Last Sample Ingested Card */}
               {lastUploadedSample && (
-                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between text-xs font-mono">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between text-xs font-mono shadow-xs">
                   <div className="space-y-1">
-                    <span className="text-emerald-400 font-bold">LATEST INGESTED SAMPLE: {lastUploadedSample.sample_id}</span>
-                    <p className="text-slate-400">
+                    <span className="text-emerald-800 font-bold">LATEST INGESTED SAMPLE: {lastUploadedSample.sample_id}</span>
+                    <p className="text-slate-600">
                       Duration: {lastUploadedSample.duration_seconds}s &bull; Clipping: {lastUploadedSample.quality_telemetry.clipping_percentage}% &bull; SNR: {lastUploadedSample.quality_telemetry.estimated_snr_db} dB &bull; Silence: {lastUploadedSample.quality_telemetry.silence_percentage}%
                     </p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                     POOL STAGED
                   </span>
                 </div>
@@ -867,19 +867,19 @@ export default function PhysicalDomainCollectionPage() {
           <div className="space-y-6">
             {/* Top Metrics Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
-                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
-                  <HardDrive className="w-3.5 h-3.5 text-blue-400" /> Staged Total
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-1 shadow-xs">
+                <span className="text-xs font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                  <HardDrive className="w-3.5 h-3.5 text-indigo-600" /> Staged Total
                 </span>
-                <p className="text-3xl font-bold font-mono text-white">{dashboard.total_samples} / {dashboard.target_total || 300}</p>
-                <span className="text-xs font-mono text-emerald-400">{dashboard.real_sample_count} Real &bull; {dashboard.synthetic_sample_count} Synth</span>
+                <p className="text-3xl font-bold font-mono text-slate-900">{dashboard.total_samples} / {dashboard.target_total || 300}</p>
+                <span className="text-xs font-mono text-emerald-700 font-medium">{dashboard.real_sample_count} Real &bull; {dashboard.synthetic_sample_count} Synth</span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
-                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-amber-400" /> Human Speakers
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-1 shadow-xs">
+                <span className="text-xs font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-600" /> Human Speakers
                 </span>
-                <p className={`text-3xl font-bold font-mono ${dashboard.human_speaker_count >= (dashboard.target_speakers || 15) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <p className={`text-3xl font-bold font-mono ${dashboard.human_speaker_count >= (dashboard.target_speakers || 15) ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {dashboard.human_speaker_count} / {dashboard.target_speakers || 15}
                 </p>
                 <span className="text-xs font-mono text-slate-500">
@@ -887,21 +887,21 @@ export default function PhysicalDomainCollectionPage() {
                 </span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
-                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-indigo-400" /> Physical Replay
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-1 shadow-xs">
+                <span className="text-xs font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-indigo-600" /> Physical Replay
                 </span>
-                <p className={`text-3xl font-bold font-mono ${(dashboard.physical_replay_count || 0) >= (dashboard.target_replay || 150) ? 'text-emerald-400' : 'text-indigo-400'}`}>
+                <p className={`text-3xl font-bold font-mono ${(dashboard.physical_replay_count || 0) >= (dashboard.target_replay || 150) ? 'text-emerald-700' : 'text-indigo-700'}`}>
                   {dashboard.physical_replay_count || 0} / {dashboard.target_replay || 150}
                 </p>
                 <span className="text-xs font-mono text-slate-500">Transducer verified</span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
-                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-emerald-400" /> Readiness Gate
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-1 shadow-xs">
+                <span className="text-xs font-mono text-slate-500 uppercase flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-emerald-600" /> Readiness Gate
                 </span>
-                <p className={`text-base font-bold font-mono mt-1 ${dashboard.ready_for_stage_2_evaluation ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <p className={`text-base font-bold font-mono mt-1 ${dashboard.ready_for_stage_2_evaluation ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {dashboard.ready_for_stage_2_evaluation ? 'READY FOR EVAL' : 'COLLECTION ACTIVE'}
                 </p>
                 <span className="text-xs font-mono text-slate-500">
@@ -912,10 +912,10 @@ export default function PhysicalDomainCollectionPage() {
 
             {/* Statistical Sufficiency Note Banner */}
             {dashboard.statistical_sufficiency_note && (
-              <div className="bg-amber-950/25 border border-amber-500/30 rounded-2xl p-5 text-xs font-mono text-amber-200/90 leading-relaxed flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-xs font-mono text-amber-900 leading-relaxed flex items-start gap-3 shadow-xs">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-bold text-amber-400 uppercase mb-1">Collection Scope & Statistical Sufficiency Note</h4>
+                  <h4 className="font-bold text-amber-800 uppercase mb-1">Collection Scope & Statistical Sufficiency Note</h4>
                   <p>{dashboard.statistical_sufficiency_note}</p>
                 </div>
               </div>
@@ -923,11 +923,11 @@ export default function PhysicalDomainCollectionPage() {
 
             {/* Confound & Imbalance Flags */}
             {(dashboard.imbalance_flags.length > 0 || dashboard.confound_flags.length > 0 || dashboard.leakage_flags.length > 0) && (
-              <div className="bg-amber-950/30 border border-amber-500/40 rounded-2xl p-5 space-y-3 text-xs font-mono">
-                <h3 className="font-bold text-amber-400 flex items-center gap-2 uppercase tracking-wider">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" /> Imbalance & Acoustic Confound Flags
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3 text-xs font-mono shadow-xs">
+                <h3 className="font-bold text-amber-800 flex items-center gap-2 uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" /> Imbalance & Acoustic Confound Flags
                 </h3>
-                <ul className="space-y-1.5 list-disc list-inside text-amber-200">
+                <ul className="space-y-1.5 list-disc list-inside text-amber-900">
                   {dashboard.imbalance_flags.map((flag, i) => (
                     <li key={`imb_${i}`}>{flag}</li>
                   ))}
@@ -942,20 +942,20 @@ export default function PhysicalDomainCollectionPage() {
             )}
 
             {/* Split Export Section */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xs font-mono font-bold text-slate-200 uppercase flex items-center gap-2">
-                    <Download className="w-4 h-4 text-emerald-400" /> Export Partitioned Dataset Splits
+                  <h3 className="text-xs font-mono font-bold text-slate-900 uppercase flex items-center gap-2">
+                    <Download className="w-4 h-4 text-emerald-600" /> Export Partitioned Dataset Splits
                   </h3>
-                  <p className="text-xs font-mono text-slate-400 mt-1">
+                  <p className="text-xs font-mono text-slate-600 mt-1">
                     Generates train, validation, and test partitions with strict human speaker disjointness into <code>ml_data/physical_domain</code>.
                   </p>
                 </div>
                 <button
                   onClick={handleExportSplits}
                   disabled={isExporting || dashboard.total_samples === 0}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shrink-0"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shrink-0 shadow-xs"
                 >
                   <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
                   {isExporting ? 'Exporting...' : 'Export Partitioned Splits'}
@@ -963,24 +963,24 @@ export default function PhysicalDomainCollectionPage() {
               </div>
 
               {exportResult && (
-                <div className="p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-2 text-xs font-mono">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                    <CheckCircle2 className="w-4 h-4" />
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 text-xs font-mono">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Splits Successfully Exported ({exportResult.total_exported} total samples)</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-300">
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                      Train: <span className="text-emerald-400 font-bold">{exportResult.train_count}</span> samples
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-700">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      Train: <span className="text-emerald-700 font-bold">{exportResult.train_count}</span> samples
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                      Validation: <span className="text-indigo-400 font-bold">{exportResult.validation_count}</span> samples
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      Validation: <span className="text-indigo-700 font-bold">{exportResult.validation_count}</span> samples
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                      Test: <span className="text-amber-400 font-bold">{exportResult.test_count}</span> samples
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200">
+                      Test: <span className="text-amber-700 font-bold">{exportResult.test_count}</span> samples
                     </div>
                   </div>
-                  <p className="text-[11px] text-slate-400 pt-1">
-                    Speaker Disjointness: <span className="text-emerald-400 font-bold">{exportResult.human_speakers_disjoint ? 'VERIFIED (0% overlap)' : 'FAILED'}</span> &bull; Directory: <code>{exportResult.export_directory}</code>
+                  <p className="text-[11px] text-slate-600 pt-1">
+                    Speaker Disjointness: <span className="text-emerald-700 font-bold">{exportResult.human_speakers_disjoint ? 'VERIFIED (0% overlap)' : 'FAILED'}</span> &bull; Directory: <code>{exportResult.export_directory}</code>
                   </p>
                 </div>
               )}
@@ -989,25 +989,25 @@ export default function PhysicalDomainCollectionPage() {
             {/* Detailed Speaker & Device Breakdown Tables */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Speakers Table */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <h3 className="text-xs font-mono font-bold text-slate-300 uppercase">Human Speaker Distribution</h3>
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-xs">
+                <h3 className="text-xs font-mono font-bold text-slate-900 uppercase">Human Speaker Distribution</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs font-mono text-left">
                     <thead>
-                      <tr className="text-slate-500 border-b border-slate-800 pb-2">
+                      <tr className="text-slate-500 border-b border-slate-200 pb-2">
                         <th className="pb-2">Speaker ID</th>
                         <th className="pb-2">Samples</th>
                         <th className="pb-2">% of Real</th>
                         <th className="pb-2">Devices</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {Object.entries(dashboard.per_human_speaker).map(([spk, data]) => (
-                        <tr key={spk} className="hover:bg-slate-800/30">
-                          <td className="py-2.5 font-bold text-slate-200">{spk}</td>
-                          <td className="py-2.5 text-emerald-400">{data.genuine_sample_count}</td>
-                          <td className="py-2.5 text-slate-400">{data.percentage_of_real_class}%</td>
-                          <td className="py-2.5 text-slate-400">{data.device_categories.join(', ')}</td>
+                        <tr key={spk} className="hover:bg-slate-50">
+                          <td className="py-2.5 font-bold text-slate-900">{spk}</td>
+                          <td className="py-2.5 text-emerald-700 font-semibold">{data.genuine_sample_count}</td>
+                          <td className="py-2.5 text-slate-600">{data.percentage_of_real_class}%</td>
+                          <td className="py-2.5 text-slate-600">{data.device_categories.join(', ')}</td>
                         </tr>
                       ))}
                       {Object.keys(dashboard.per_human_speaker).length === 0 && (
@@ -1021,25 +1021,25 @@ export default function PhysicalDomainCollectionPage() {
               </div>
 
               {/* Device Categories Table */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <h3 className="text-xs font-mono font-bold text-slate-300 uppercase">Device Category Balance</h3>
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-xs">
+                <h3 className="text-xs font-mono font-bold text-slate-900 uppercase">Device Category Balance</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs font-mono text-left">
                     <thead>
-                      <tr className="text-slate-500 border-b border-slate-800 pb-2">
+                      <tr className="text-slate-500 border-b border-slate-200 pb-2">
                         <th className="pb-2">Category</th>
                         <th className="pb-2">Real</th>
                         <th className="pb-2">Synthetic</th>
                         <th className="pb-2">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-100">
                       {Object.entries(dashboard.per_device_category).map(([dev, counts]) => (
-                        <tr key={dev} className="hover:bg-slate-800/30">
-                          <td className="py-2.5 font-bold text-slate-200 capitalize">{dev}</td>
-                          <td className="py-2.5 text-emerald-400">{counts.real_count}</td>
-                          <td className="py-2.5 text-indigo-400">{counts.synthetic_count}</td>
-                          <td className="py-2.5 font-bold text-slate-200">{counts.total}</td>
+                        <tr key={dev} className="hover:bg-slate-50">
+                          <td className="py-2.5 font-bold text-slate-900 capitalize">{dev}</td>
+                          <td className="py-2.5 text-emerald-700 font-semibold">{counts.real_count}</td>
+                          <td className="py-2.5 text-indigo-700 font-semibold">{counts.synthetic_count}</td>
+                          <td className="py-2.5 font-bold text-slate-900">{counts.total}</td>
                         </tr>
                       ))}
                     </tbody>

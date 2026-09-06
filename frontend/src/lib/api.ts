@@ -231,6 +231,156 @@ class ApiClient {
 
     return await res.json();
   }
+
+  // --- Final Working-Model Phase 9-14 Endpoints ---
+
+  async transcribeAudio(file: File): Promise<{
+    text: string;
+    language: string;
+    confidence: number;
+    duration_seconds: number;
+    engine: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    const res = await fetch(`${this.baseUrl}/api/v1/stt/transcribe`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Speech transcription');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async analyzeScamIntent(text: string, messages?: string[]): Promise<{
+    scam_probability: number;
+    risk_level: 'no_indicators' | 'warning' | 'high' | 'unassessed';
+    primary_intent: string;
+    intent_scores: Record<string, number>;
+    detected_triggers: string[];
+    model_version: string;
+    is_ml_inferred: boolean;
+  }> {
+    const res = await fetch(`${this.baseUrl}/api/v1/semantic/analyze-intent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, messages }),
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Scam intent analysis');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async enrollSpeaker(
+    speakerId: string,
+    speakerName: string,
+    file: File
+  ): Promise<{
+    speaker_id: string;
+    speaker_name: string;
+    embedding_dim: number;
+    duration_seconds: number;
+    status: string;
+  }> {
+    const formData = new FormData();
+    formData.append('speaker_id', speakerId);
+    formData.append('speaker_name', speakerName);
+    formData.append('file', file, file.name);
+
+    const res = await fetch(`${this.baseUrl}/api/v1/speaker/enroll`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Speaker enrollment');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async verifySpeaker(
+    speakerId: string,
+    file: File
+  ): Promise<{
+    speaker_id: string;
+    state: 'IDENTITY_MATCH' | 'IDENTITY_MISMATCH' | 'IDENTITY_UNCERTAIN' | 'NOT_ENROLLED' | 'INSUFFICIENT_AUDIO';
+    similarity_score: number | null;
+    thresholds: Record<string, number>;
+    explanation: string;
+    duration_seconds: number;
+  }> {
+    const formData = new FormData();
+    formData.append('speaker_id', speakerId);
+    formData.append('file', file, file.name);
+
+    const res = await fetch(`${this.baseUrl}/api/v1/speaker/verify`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Speaker verification');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async listEnrolledSpeakers(): Promise<
+    Array<{
+      speaker_id: string;
+      speaker_name: string;
+      enrolled_at: string;
+      duration_seconds: number;
+      sample_count: number;
+    }>
+  > {
+    const res = await fetch(`${this.baseUrl}/api/v1/speaker/enrolled`);
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Listing enrolled speakers');
+      throw new Error(errMsg);
+    }
+    return await res.json();
+  }
+
+  async evaluateMultimodal(payload: {
+    acoustic?: unknown;
+    semantic?: unknown;
+    speaker?: unknown;
+    context?: Record<string, unknown>;
+  }): Promise<{
+    overall_risk: 'LOW' | 'VERIFY' | 'HIGH' | 'UNASSESSED';
+    recommended_action: string;
+    confidence: number;
+    headline: string;
+    explanation: string;
+    evidence_layers: Record<string, unknown>;
+    disclaimer: string;
+  }> {
+    const res = await fetch(`${this.baseUrl}/api/v1/multimodal/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Multimodal risk evaluation');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
 }
 
 export const api = new ApiClient();

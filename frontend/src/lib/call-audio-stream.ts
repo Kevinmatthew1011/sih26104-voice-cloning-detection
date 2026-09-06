@@ -2,6 +2,8 @@ import type { AcousticAssessment } from './scam-demo';
 
 export interface LiveAcousticUpdate {
   type: 'acoustic_update';
+  engine?: string;
+  engine_type?: string;
   window_index: number;
   start_seconds: number;
   end_seconds: number;
@@ -24,11 +26,14 @@ export interface LiveStatusEvent {
   samples_required?: number;
   windows_analyzed?: number;
   engine?: string;
+  engine_type?: string;
   sample_rate?: number;
 }
 
 export interface LiveSessionSummary {
   type: 'session_summary';
+  engine?: string;
+  engine_type?: string;
   total_duration_seconds: number;
   windows_analyzed: number;
   peak_synthetic_probability: number | null;
@@ -45,11 +50,22 @@ export interface LiveErrorEvent {
   detail?: string;
 }
 
+export interface LiveMultimodalUpdate {
+  type: 'multimodal_update';
+  overall_risk: 'LOW' | 'VERIFY' | 'HIGH' | 'UNASSESSED';
+  recommended_action: string;
+  confidence: number;
+  headline: string;
+  explanation: string;
+  evidence_layers: Record<string, unknown>;
+}
+
 export type LiveStreamEvent =
   | LiveStatusEvent
   | LiveAcousticUpdate
   | LiveSessionSummary
-  | LiveErrorEvent;
+  | LiveErrorEvent
+  | LiveMultimodalUpdate;
 
 /**
  * Pure parser for WebSocket acoustic telemetry messages.
@@ -79,8 +95,18 @@ export function parseLiveAcousticMessage(raw: unknown): LiveStreamEvent | null {
     if (Number.isNaN(pSynth) || pSynth < 0 || pSynth > 1) {
       return null;
     }
+    const engineStr =
+      typeof rec.engine === 'string'
+        ? rec.engine
+        : typeof rec.engine_type === 'string'
+        ? rec.engine_type
+        : undefined;
+
+
     return {
       type: 'acoustic_update',
+      engine: engineStr,
+      engine_type: engineStr,
       window_index: Number(rec.window_index ?? 0),
       start_seconds: Number(rec.start_seconds ?? 0),
       end_seconds: Number(rec.end_seconds ?? 0),
@@ -95,7 +121,7 @@ export function parseLiveAcousticMessage(raw: unknown): LiveStreamEvent | null {
           ? 'medium'
           : 'low',
       action: String(rec.action || (pSynth >= 0.7 ? 'BLOCK' : pSynth >= 0.5 ? 'VERIFY' : 'ALLOW')),
-      model_version: String(rec.model_version || 'aasist-v1'),
+      model_version: String(rec.model_version || 'unknown'),
       confidence: typeof rec.confidence === 'number' ? rec.confidence : pSynth,
       cm_score: typeof rec.cm_score === 'number' ? rec.cm_score : null,
       cumulative_windows: Number(rec.cumulative_windows ?? (Number(rec.window_index ?? 0) + 1)),
@@ -112,13 +138,24 @@ export function parseLiveAcousticMessage(raw: unknown): LiveStreamEvent | null {
       samples_required: typeof rec.samples_required === 'number' ? rec.samples_required : undefined,
       windows_analyzed: typeof rec.windows_analyzed === 'number' ? rec.windows_analyzed : undefined,
       engine: typeof rec.engine === 'string' ? rec.engine : undefined,
+      engine_type: typeof rec.engine_type === 'string' ? rec.engine_type : typeof rec.engine === 'string' ? rec.engine : undefined,
       sample_rate: typeof rec.sample_rate === 'number' ? rec.sample_rate : undefined,
     };
   }
 
   if (type === 'session_summary') {
+    const engineStr =
+      typeof rec.engine === 'string'
+        ? rec.engine
+        : typeof rec.engine_type === 'string'
+        ? rec.engine_type
+        : undefined;
+
+
     return {
       type: 'session_summary',
+      engine: engineStr,
+      engine_type: engineStr,
       total_duration_seconds: Number(rec.total_duration_seconds ?? 0),
       windows_analyzed: Number(rec.windows_analyzed ?? 0),
       peak_synthetic_probability:
@@ -128,7 +165,7 @@ export function parseLiveAcousticMessage(raw: unknown): LiveStreamEvent | null {
       final_prediction: String(rec.final_prediction || 'unknown'),
       final_risk_level: String(rec.final_risk_level || 'not_assessed'),
       final_action: String(rec.final_action || 'not_evaluated'),
-      model_version: String(rec.model_version || 'aasist-v1'),
+      model_version: String(rec.model_version || 'unknown'),
     };
   }
 
@@ -141,19 +178,40 @@ export function parseLiveAcousticMessage(raw: unknown): LiveStreamEvent | null {
     };
   }
 
+  if (type === 'multimodal_update') {
+    const risk = String(rec.overall_risk || 'UNASSESSED').toUpperCase();
+    const validRisk =
+      risk === 'HIGH' || risk === 'VERIFY' || risk === 'LOW' ? risk : 'UNASSESSED';
+    return {
+      type: 'multimodal_update',
+      overall_risk: validRisk as 'LOW' | 'VERIFY' | 'HIGH' | 'UNASSESSED',
+      recommended_action: String(rec.recommended_action || 'verify'),
+      confidence: typeof rec.confidence === 'number' ? rec.confidence : 0.0,
+      headline: String(rec.headline || ''),
+      explanation: String(rec.explanation || ''),
+      evidence_layers: (rec.evidence_layers as Record<string, unknown>) || {},
+    };
+  }
+
   return null;
 }
 
 /**
  * Maps live telemetry state to the standard AcousticAssessment DTO.
- * Guarantees that unassessed or low-risk speech never claims verified authenticity.
+ * Guarantees truthful engine reporting and ensures low-risk speech never claims verified authenticity.
  */
 export function computeLiveAcousticAssessment(
   update: LiveAcousticUpdate | null,
   statusState?: string,
-  error?: string | null
+  error?: string | null,
+  activeEngine?: string
 ): AcousticAssessment {
   if (error) {
+    const isAasistMissing =
+      error.includes('AASIST_UNAVAILABLE') ||
+      error.includes('AASIST') ||
+      error.includes('checkpoint') ||
+      error.toLowerCase().includes('not found');
     return {
       status: 'error',
       label: 'Acoustic analysis unavailable — semantic monitoring remains active',
@@ -162,24 +220,36 @@ export function computeLiveAcousticAssessment(
       riskLevel: 'not_assessed',
       prediction: null,
       action: null,
-      engineType: 'AASIST',
+      engineType: isAasistMissing ? 'ACOUSTIC UNAVAILABLE' : 'UNAVAILABLE',
       modelVersion: null,
       errorMessage: error,
     };
   }
 
+  const rawEngine = (update?.engine || update?.engine_type || activeEngine || '').toLowerCase();
+  const isAasist = rawEngine === 'aasist' && !(update?.model_version?.toLowerCase().includes('mock') ?? false);
+  const isMock =
+    !isAasist &&
+    (rawEngine === 'mock' ||
+      rawEngine === '' ||
+      (update?.model_version?.toLowerCase().includes('mock') ?? false));
+  const engineDisplay = isAasist ? 'AASIST' : isMock ? 'MOCK ENGINE' : rawEngine.toUpperCase() || 'UNKNOWN';
+  const fallbackModelVersion = isAasist ? 'aasist-v1' : 'mock-v1';
+
   if (!update) {
     if (statusState === 'buffering' || statusState === 'connected') {
       return {
         status: 'analyzing',
-        label: 'Analyzing call acoustics… (buffering sliding window)',
+        label: isMock
+          ? 'Buffering call acoustics (Mock Engine)…'
+          : 'Buffering call acoustics… (buffering sliding window)',
         syntheticProbability: null,
         confidence: null,
         riskLevel: 'not_assessed',
         prediction: null,
         action: null,
-        engineType: 'AASIST',
-        modelVersion: 'aasist-v1',
+        engineType: engineDisplay,
+        modelVersion: fallbackModelVersion,
       };
     }
     return {
@@ -190,7 +260,7 @@ export function computeLiveAcousticAssessment(
       riskLevel: 'not_assessed',
       prediction: null,
       action: null,
-      engineType: 'AASIST',
+      engineType: engineDisplay,
       modelVersion: null,
     };
   }
@@ -199,9 +269,21 @@ export function computeLiveAcousticAssessment(
   const isSynthetic = update.prediction === 'synthetic' || pSynth >= 0.5;
   const isGenuine = update.prediction === 'real' && pSynth < 0.5;
 
+  const label = isMock
+    ? isSynthetic
+      ? 'Mock Synthetic Voice Detected'
+      : isGenuine
+      ? 'Mock Genuine Voice'
+      : 'Mock Inconclusive'
+    : isSynthetic
+    ? 'Synthetic speech indicators detected'
+    : isGenuine
+    ? 'Likely human speech characteristics'
+    : 'Inconclusive Voice Telemetry';
+
   return {
     status: isSynthetic ? 'synthetic_detected' : isGenuine ? 'likely_genuine' : 'inconclusive',
-    label: isSynthetic ? 'Synthetic Voice Detected' : 'Likely Genuine Voice',
+    label,
     syntheticProbability: pSynth,
     confidence: update.confidence !== undefined ? Number(update.confidence.toFixed(4)) : pSynth,
     riskLevel: update.risk_level,
@@ -214,8 +296,8 @@ export function computeLiveAcousticAssessment(
         : isSynthetic
         ? 'BLOCK'
         : 'ALLOW',
-    engineType: 'AASIST',
-    modelVersion: update.model_version,
+    engineType: engineDisplay,
+    modelVersion: update.model_version || fallbackModelVersion,
   };
 }
 
@@ -239,10 +321,37 @@ export function getWebSocketEndpoint(
 
 export interface StreamCallbacks {
   onStatus?: (status: LiveStatusEvent) => void;
+  onDiagnostics?: (value: string) => void;
   onAcousticUpdate?: (update: LiveAcousticUpdate) => void;
+  onMultimodalUpdate?: (update: LiveMultimodalUpdate) => void;
   onError?: (error: LiveErrorEvent) => void;
   onSummary?: (summary: LiveSessionSummary) => void;
   onClose?: () => void;
+}
+
+/**
+ * Linear interpolation resampler from arbitrary hardware sample rate to 16,000 Hz.
+ * Enforces explicit 16 kHz mono pcm_s16le audio across disparate browser and OS configurations.
+ */
+export function resampleTo16k(
+  input: Float32Array,
+  inputSampleRate: number
+): Float32Array {
+  if (inputSampleRate === 16000 || input.length === 0) {
+    return input;
+  }
+  const ratio = inputSampleRate / 16000;
+  const outputLength = Math.max(1, Math.round(input.length / ratio));
+  const result = new Float32Array(outputLength);
+
+  for (let i = 0; i < outputLength; i++) {
+    const origIndex = i * ratio;
+    const indexFloor = Math.floor(origIndex);
+    const indexCeil = Math.min(input.length - 1, indexFloor + 1);
+    const fraction = origIndex - indexFloor;
+    result[i] = input[indexFloor] * (1 - fraction) + input[indexCeil] * fraction;
+  }
+  return result;
 }
 
 /**
@@ -256,6 +365,8 @@ export class CallAudioStreamClient {
   private isRunning: boolean = false;
   private callbacks: StreamCallbacks = {};
   private sessionSummary: LiveSessionSummary | null = null;
+
+  private isLocalCapture: boolean = true;
 
   public isStreaming(): boolean {
     return this.isRunning;
@@ -274,6 +385,7 @@ export class CallAudioStreamClient {
   ): Promise<void> {
     this.callbacks = callbacks;
     this.sessionSummary = null;
+    this.isLocalCapture = true;
 
     if (typeof window === 'undefined') {
       this.notifyError('SSR_NOT_SUPPORTED', 'Real-time audio capture is not supported in SSR.');
@@ -337,6 +449,8 @@ export class CallAudioStreamClient {
 
       if (parsed.type === 'acoustic_update') {
         this.callbacks.onAcousticUpdate?.(parsed);
+      } else if (parsed.type === 'multimodal_update') {
+        this.callbacks.onMultimodalUpdate?.(parsed);
       } else if (parsed.type === 'status') {
         this.callbacks.onStatus?.(parsed);
       } else if (parsed.type === 'session_summary') {
@@ -362,6 +476,99 @@ export class CallAudioStreamClient {
     };
   }
 
+  /**
+   * Start analyzing an existing remote MediaStream (e.g. from WebRTC ontrack)
+   * without accessing the local user's microphone.
+   */
+  public async startFromStream(
+    stream: MediaStream,
+    callbacks: StreamCallbacks,
+    options?: { wsUrl?: string; engine?: string }
+  ): Promise<void> {
+    this.callbacks = callbacks;
+    this.sessionSummary = null;
+    this.isLocalCapture = false;
+    this.mediaStream = stream;
+
+    if (typeof window === 'undefined') {
+      this.notifyError('SSR_NOT_SUPPORTED', 'Real-time audio analysis is not supported in SSR.');
+      return;
+    }
+
+    const targetUrl = options?.wsUrl || getWebSocketEndpoint(undefined, { engine: options?.engine });
+
+    try {
+      this.ws = new WebSocket(targetUrl);
+      this.ws.binaryType = 'arraybuffer';
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.notifyError('WS_CONNECT_FAILED', 'Failed connecting to acoustic monitoring service.', message);
+      return;
+    }
+
+    this.ws.onopen = () => {
+      this.isRunning = true;
+      this.setupAudioPipeline();
+    };
+
+    this.ws.onmessage = (event) => {
+      const parsed = parseLiveAcousticMessage(event.data);
+      if (!parsed) return;
+
+      if (parsed.type === 'acoustic_update') {
+        this.callbacks.onAcousticUpdate?.(parsed);
+      } else if (parsed.type === 'multimodal_update') {
+        this.callbacks.onMultimodalUpdate?.(parsed);
+      } else if (parsed.type === 'status') {
+        this.callbacks.onStatus?.(parsed);
+      } else if (parsed.type === 'session_summary') {
+        this.sessionSummary = parsed;
+        this.callbacks.onSummary?.(parsed);
+      } else if (parsed.type === 'error') {
+        this.callbacks.onError?.(parsed);
+      }
+    };
+
+    this.ws.onerror = (evt) => {
+      this.notifyError(
+        'WS_CONNECTION_ERROR',
+        'Real-time acoustic analysis unavailable — semantic monitoring remains active.',
+        String(evt)
+      );
+    };
+
+    this.ws.onclose = () => {
+      this.isRunning = false;
+      this.callbacks.onClose?.();
+      this.cleanup();
+    };
+  }
+
+  public sendContextUpdate(transcript: string, speakerId?: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            action: 'update_context',
+            transcript,
+            speaker_id: speakerId || null,
+          })
+        );
+      } catch {
+        // Send failed
+      }
+    }
+  }
+
+  public attachMediaStream(stream: MediaStream): void {
+    this.stopCaptureTracks();
+    this.isLocalCapture = false;
+    this.mediaStream = stream;
+    if (this.isRunning && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.setupAudioPipeline();
+    }
+  }
+
   private setupAudioPipeline(): void {
     if (!this.mediaStream || !this.ws) return;
 
@@ -370,9 +577,10 @@ export class CallAudioStreamClient {
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioContext = new AudioCtx({ sampleRate: 16000 });
+      void this.audioContext.resume().catch(error => this.notifyError('AUDIO_CONTEXT_BLOCKED', String(error)));
 
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-      // 4096 samples at 16 kHz = ~0.256s buffer per chunk
+      // 4096 samples buffer
       this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
       this.processor.onaudioprocess = (e) => {
@@ -381,22 +589,30 @@ export class CallAudioStreamClient {
         }
 
         const inputChannel = e.inputBuffer.getChannelData(0);
-        // Convert Float32 [-1.0, 1.0] to 16-bit signed PCM
-        const pcm16 = new Int16Array(inputChannel.length);
-        for (let i = 0; i < inputChannel.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputChannel[i]));
+        const actualSampleRate = e.inputBuffer.sampleRate || this.audioContext?.sampleRate || 16000;
+        const resampled = resampleTo16k(inputChannel, actualSampleRate);
+
+        // Convert Float32 [-1.0, 1.0] to 16-bit signed PCM (pcm_s16le)
+        const pcm16 = new Int16Array(resampled.length);
+        for (let i = 0; i < resampled.length; i++) {
+          const s = Math.max(-1, Math.min(1, resampled[i]));
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
 
         try {
           this.ws.send(pcm16.buffer);
+          this.callbacks.onDiagnostics?.(`AudioContext: ${this.audioContext?.state}; input: ${actualSampleRate} Hz; PCM output: 16000 Hz mono s16le; resampler: ${actualSampleRate === 16000 ? 'native' : 'linear'}; WebSocket: open; frame: ${pcm16.length} samples`);
         } catch {
           // Send failed
         }
       };
 
       source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      // Route through a muted gain node to satisfy ScriptProcessor graph without echoing
+      const silentGain = this.audioContext.createGain();
+      silentGain.gain.value = 0;
+      this.processor.connect(silentGain);
+      silentGain.connect(this.audioContext.destination);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.notifyError(
@@ -417,10 +633,10 @@ export class CallAudioStreamClient {
   }
 
   private stopCaptureTracks(): void {
-    if (this.mediaStream) {
+    if (this.mediaStream && this.isLocalCapture) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
-      this.mediaStream = null;
     }
+    this.mediaStream = null;
   }
 
   /**
@@ -489,6 +705,10 @@ export class CallAudioStreamClient {
   }
 
   private cleanup(): void {
+    this.processor?.disconnect();
+    this.processor = null;
+    if (this.audioContext && this.audioContext.state !== 'closed') void this.audioContext.close();
+    this.audioContext = null;
     this.stopCaptureTracks();
     this.ws = null;
   }

@@ -16,6 +16,7 @@ import numpy as np
 
 from app.config import settings
 from app.services.detection.factory import get_detection_service
+from app.services.detection.mock_service import MockDetectionService
 from app.services.detection.aasist_service import AASISTDetectionService
 from app.ml.audio_decoder import decode_audio
 
@@ -134,7 +135,12 @@ class StreamingAASISTDetector:
             return aasist_service.predict_window(waveform)
 
         # Fallback to factory service (e.g. mock or baseline)
-        service = get_detection_service()
+        if self.engine_type == "mock":
+            service = MockDetectionService(model_version=settings.MOCK_MODEL_VERSION)
+        elif self.engine_type == settings.DETECTION_ENGINE:
+            service = get_detection_service()
+        else:
+            raise ValueError(f"Unsupported streaming engine: {self.engine_type}")
         if hasattr(service, "predict_window"):
             return service.predict_window(waveform)
 
@@ -172,8 +178,16 @@ class StreamingAASISTDetector:
             # Run inference
             result = self.predict_window(window_slice)
 
+            engine_val = result.get("engine_type", result.get("engine", self.engine_type))
+            m_version = result.get(
+                "model_version",
+                settings.MOCK_MODEL_VERSION if self.engine_type == "mock" else "aasist-v1",
+            )
+
             update_event = {
                 "type": "acoustic_update",
+                "engine": engine_val,
+                "engine_type": engine_val,
                 "window_index": self.window_index,
                 "start_seconds": start_sec,
                 "end_seconds": end_sec,
@@ -181,7 +195,7 @@ class StreamingAASISTDetector:
                 "prediction": result["prediction"],
                 "risk_level": result["risk_level"],
                 "action": result["action"],
-                "model_version": result.get("model_version", "aasist-v1"),
+                "model_version": m_version,
                 "confidence": result.get("confidence", result["synthetic_probability"]),
                 "cm_score": result.get("cm_score"),
                 "cumulative_windows": self.window_index + 1,
@@ -206,6 +220,8 @@ class StreamingAASISTDetector:
         return {
             "type": "status",
             "state": "buffering",
+            "engine": self.engine_type,
+            "engine_type": self.engine_type,
             "buffered_seconds": buffered_sec,
             "required_seconds": req_sec,
             "samples_buffered": len(self.pcm_buffer),
@@ -233,6 +249,8 @@ class StreamingAASISTDetector:
 
         return {
             "type": "session_summary",
+            "engine": self.engine_type,
+            "engine_type": self.engine_type,
             "total_duration_seconds": round(len(self.pcm_buffer) / self.sample_rate, 2),
             "windows_analyzed": self.window_index,
             "peak_synthetic_probability": peak_synth,

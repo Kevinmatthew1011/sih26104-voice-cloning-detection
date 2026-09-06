@@ -195,3 +195,14 @@ async def test_known_spoof_sample_if_available():
     assert dto.prediction == PredictionEnum.SYNTHETIC
     assert dto.risk_level == RiskLevelEnum.HIGH
     assert dto.confidence >= 0.90
+
+
+def test_checkpoint_hash_failure_prevents_loading(tmp_path):
+    # Bypass the singleton only to isolate this deliberately corrupt checkpoint.
+    engine = object.__new__(AASISTInferenceEngine)
+    engine.weights_path = tmp_path / "AASIST.pth"
+    engine.config_path = tmp_path / "AASIST.conf"
+    engine.weights_path.write_bytes(b"corrupt checkpoint")
+    engine.config_path.write_text("{}")
+    with pytest.raises(RuntimeError, match="SHA-256"):
+        engine.load_model()

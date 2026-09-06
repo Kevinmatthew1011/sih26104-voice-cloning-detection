@@ -1,9 +1,6 @@
 import logging
 from app.config import settings
 from app.services.detection.base import BaseDetectionService
-from app.services.detection.mock_service import MockDetectionService
-from app.services.detection.baseline_service import BaselineMLDetectionService
-from app.services.detection.aasist_service import AASISTDetectionService
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +24,15 @@ def get_detection_service() -> BaseDetectionService:
     engine_name = settings.DETECTION_ENGINE.strip().lower()
 
     if engine_name == "mock":
+        from app.services.detection.mock_service import MockDetectionService
         logger.info(f"Initializing MockDetectionService (model_version: {settings.MOCK_MODEL_VERSION})")
         _detection_service_instance = MockDetectionService(model_version=settings.MOCK_MODEL_VERSION)
     elif engine_name == "baseline":
+        from app.services.detection.baseline_service import BaselineMLDetectionService
         logger.info("Initializing BaselineMLDetectionService (model_version: baseline-v1)")
         _detection_service_instance = BaselineMLDetectionService(model_version="baseline-v1")
     elif engine_name == "aasist":
+        from app.services.detection.aasist_service import AASISTDetectionService
         logger.info("Initializing AASISTDetectionService (model_version: aasist-v1)")
         _detection_service_instance = AASISTDetectionService(model_version="aasist-v1")
     else:

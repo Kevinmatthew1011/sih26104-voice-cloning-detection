@@ -21,45 +21,45 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
     if (!isEvaluated) {
       return {
         text: 'text-slate-400',
-        stroke: 'stroke-slate-700',
-        bg: 'bg-slate-800/20',
-        border: 'border-slate-700',
+        stroke: 'stroke-slate-300',
+        bg: 'bg-slate-100',
+        border: 'border-slate-200',
         glow: '',
       };
     }
     if (prediction === 'synthetic' || riskLevel === 'high') {
       return {
-        text: 'text-red-400',
+        text: 'text-red-600',
         stroke: 'stroke-red-500',
-        bg: 'bg-red-500/10',
-        border: 'border-red-500/20',
-        glow: 'drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]',
+        bg: 'bg-red-50',
+        border: 'border-red-200',
+        glow: '',
       };
     }
     if (prediction === 'replay' || riskLevel === 'medium') {
       return {
-        text: 'text-amber-400',
+        text: 'text-amber-600',
         stroke: 'stroke-amber-500',
-        bg: 'bg-amber-500/10',
-        border: 'border-amber-500/20',
-        glow: 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]',
+        bg: 'bg-amber-50',
+        border: 'border-amber-200',
+        glow: '',
       };
     }
     if (prediction === 'real' || riskLevel === 'low') {
       return {
-        text: 'text-emerald-400',
+        text: 'text-emerald-600',
         stroke: 'stroke-emerald-500',
-        bg: 'bg-emerald-500/10',
-        border: 'border-emerald-500/20',
-        glow: 'drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+        bg: 'bg-emerald-50',
+        border: 'border-emerald-200',
+        glow: '',
       };
     }
     return {
-      text: 'text-cyan-400',
-      stroke: 'stroke-cyan-500',
-      bg: 'bg-cyan-500/10',
-      border: 'border-cyan-500/20',
-      glow: 'drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]',
+      text: 'text-indigo-600',
+      stroke: 'stroke-indigo-500',
+      bg: 'bg-indigo-50',
+      border: 'border-indigo-200',
+      glow: '',
     };
   };
 
@@ -95,7 +95,7 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
             stroke="currentColor"
             strokeWidth={strokeWidth}
             fill="transparent"
-            className="text-slate-800"
+            className="text-slate-200"
           />
           {/* Progress circle */}
           <circle
@@ -122,13 +122,13 @@ export const ConfidenceGauge: React.FC<ConfidenceGaugeProps> = ({
         </div>
       </div>
       <div className="flex flex-col">
-        <span className="text-xs uppercase tracking-wider text-slate-400 font-mono">
+        <span className="text-xs uppercase tracking-wider text-slate-500 font-mono">
           {probabilityLabel}
         </span>
-        <span className="text-sm font-semibold text-slate-200 font-mono">
+        <span className="text-sm font-semibold text-slate-800 font-mono">
           {isEvaluated ? `${(confidence * 100).toFixed(1)}%` : 'N/A'}
         </span>
-        <span className="text-[10px] text-slate-500 font-mono">
+        <span className="text-[10px] text-slate-400 font-mono">
           {isEvaluated ? 'Uncalibrated model estimate' : 'Model not evaluated'}
         </span>
       </div>

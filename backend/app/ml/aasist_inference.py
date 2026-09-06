@@ -339,6 +339,9 @@ class AASISTInferenceEngine:
                 f"Please ensure AASIST.pth and AASIST.conf are placed under '{self.weights_path.parent}'."
             )
 
+        if not self.verify_checkpoint_hash():
+            raise RuntimeError("AASIST checkpoint SHA-256 does not match the official frozen checkpoint")
+
         # 1. Read config
         with open(self.config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
@@ -442,6 +445,8 @@ class AASISTInferenceEngine:
             action = "allow"
 
         return {
+            "engine": "aasist",
+            "engine_type": "aasist",
             "synthetic_probability": round(prob_synth, 4),
             "real_probability": round(prob_real, 4),
             "cm_score": round(cm_score, 4),

@@ -1,0 +1,15 @@
+{
+  "model_version": "scam-intent-v1",
+  "algorithm": "TfidfVectorizer + LogisticRegression",
+  "classes": [
+    "authority_impersonation",
+    "benign",
+    "credential_theft",
+    "remote_access_takeover",
+    "urgent_financial_coercion"
+  ],
+  "num_training_samples": 60,
+  "cv_folds": 4,
+  "cv_macro_f1": 0.7455,
+  "feature_version": "tfidf_word_ngram_1_2"
+}

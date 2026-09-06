@@ -223,6 +223,8 @@ class MockDetectionService(BaseDetectionService):
         action = "block" if risk_level == "high" else ("verify" if risk_level == "medium" else "allow")
 
         return {
+            "engine": "mock",
+            "engine_type": "mock",
             "synthetic_probability": synth_prob,
             "real_probability": round(1.0 - synth_prob, 4),
             "cm_score": round(1.0 - 2.0 * synth_prob, 4),

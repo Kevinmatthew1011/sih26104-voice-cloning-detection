@@ -43,8 +43,8 @@ class AASISTDetectionService(BaseDetectionService):
             "analyzed_duration_seconds": 4.0375,
             "device": str(self.engine.device),
             "checkpoint_sha256": OFFICIAL_AASIST_SHA256,
-            "model_trained": is_available,
-            "status": "ready" if is_available else "model_not_found",
+            "model_trained": self.engine.is_loaded,
+            "status": "ready" if self.engine.is_loaded else "model_not_found",
         }
 
     async def detect(

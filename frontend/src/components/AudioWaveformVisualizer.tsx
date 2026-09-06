@@ -90,7 +90,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
   const activeProgress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-5 backdrop-blur-md shadow-lg">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
       <audio
         ref={audioRef}
         src={audioUrl}
@@ -101,29 +101,29 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
         preload="metadata"
       />
 
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
-          <span className="font-mono text-xs uppercase tracking-wider text-slate-300">
+          <Activity className="w-4 h-4 text-indigo-600" />
+          <span className="font-mono text-xs uppercase tracking-wider text-slate-700 font-semibold">
             Audio Signal & Playback
           </span>
         </div>
         {filename && (
-          <span className="font-mono text-xs text-slate-400 truncate max-w-[200px]">
+          <span className="font-mono text-xs text-slate-500 truncate max-w-[200px]">
             {filename}
           </span>
         )}
       </div>
 
       {/* Simulated Waveform Visualizer */}
-      <div className="relative h-20 w-full flex items-end justify-between gap-[2px] px-2 py-3 bg-slate-900/60 rounded-lg border border-slate-800/60 overflow-hidden mb-4">
+      <div className="relative h-20 w-full flex items-end justify-between gap-[2px] px-2 py-3 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden mb-4">
         {/* Playback progress overlay */}
         <div
-          className="absolute inset-0 bg-cyan-500/10 pointer-events-none transition-all duration-100"
+          className="absolute inset-0 bg-indigo-500/10 pointer-events-none transition-all duration-100"
           style={{ width: `${activeProgress}%` }}
         />
         <div
-          className="absolute top-0 bottom-0 w-[2px] bg-cyan-400 pointer-events-none shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+          className="absolute top-0 bottom-0 w-[2px] bg-indigo-600 pointer-events-none shadow-xs"
           style={{ left: `${activeProgress}%` }}
         />
 
@@ -136,20 +136,20 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
           const barColor =
             prediction === 'synthetic'
               ? isPassed
-                ? 'bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.6)]'
-                : 'bg-red-950/60'
+                ? 'bg-red-500'
+                : 'bg-red-200'
               : prediction === 'replay'
               ? isPassed
-                ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]'
-                : 'bg-amber-950/60'
+                ? 'bg-amber-500'
+                : 'bg-amber-200'
               : isPassed
-              ? 'bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.6)]'
-              : 'bg-slate-700/60';
+              ? 'bg-indigo-600'
+              : 'bg-slate-200';
 
           return (
             <div
               key={idx}
-              className={`w-full rounded-t-sm transition-all duration-75 ${barColor}`}
+              className={`w-full rounded-t-xs transition-all duration-75 ${barColor}`}
               style={{ height: `${dynamicHeight}%` }}
             />
           );
@@ -165,9 +165,9 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
           step="0.01"
           value={currentTime}
           onChange={handleSeek}
-          className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
+          className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none"
         />
-        <div className="flex justify-between text-xs font-mono text-slate-400">
+        <div className="flex justify-between text-xs font-mono text-slate-500">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
@@ -178,7 +178,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
         <div className="flex items-center gap-3">
           <button
             onClick={togglePlay}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)] hover:scale-105 active:scale-95"
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-xs hover:scale-105 active:scale-95"
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
@@ -188,7 +188,7 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
               if (audioRef.current) audioRef.current.currentTime = 0;
               setCurrentTime(0);
             }}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
             title="Restart"
           >
             <RotateCcw className="w-4 h-4" />
@@ -198,15 +198,15 @@ export const AudioWaveformVisualizer: React.FC<AudioWaveformVisualizerProps> = (
         <div className="flex items-center gap-2">
           <button
             onClick={toggleMute}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4 text-slate-600" />}
           </button>
         </div>
       </div>
 
       {audioError && (
-        <p className="mt-3 text-xs text-red-400 font-mono">{audioError}</p>
+        <p className="mt-3 text-xs text-red-600 font-mono">{audioError}</p>
       )}
     </div>
   );

@@ -212,17 +212,36 @@ export function computeAcousticAssessment(
   const isSynthetic = result.prediction === 'synthetic' || (pSynth !== null && pSynth >= 0.50);
   const isGenuine = result.prediction === 'real' || (pSynth !== null && pSynth < 0.50);
 
+  const isMock =
+    result.engine_type === 'mock' ||
+    Boolean(result.model_version?.toLowerCase().includes('mock'));
+  const isAasist =
+    result.engine_type === 'aasist' ||
+    Boolean(result.model_version?.toLowerCase().includes('aasist'));
+
   const status: AcousticStatus = isSynthetic
     ? 'synthetic_detected'
     : isGenuine
     ? 'likely_genuine'
     : 'inconclusive';
 
-  const label = isSynthetic
+  const label = isMock
+    ? isSynthetic
+      ? 'Mock Synthetic Voice Detected'
+      : isGenuine
+      ? 'Mock Genuine Voice'
+      : 'Mock Inconclusive'
+    : isSynthetic
     ? 'Synthetic Voice Detected'
     : isGenuine
     ? 'Likely Genuine Voice'
     : 'Inconclusive Voice Telemetry';
+
+  const engineType = isMock
+    ? 'MOCK ENGINE'
+    : isAasist
+    ? 'AASIST'
+    : (result.engine_type?.toUpperCase() || null);
 
   return {
     status,
@@ -232,8 +251,8 @@ export function computeAcousticAssessment(
     riskLevel: result.risk_level ?? (isSynthetic ? 'high' : 'low'),
     prediction: result.prediction ?? null,
     action: result.action ?? result.decision?.action ?? null,
-    engineType: result.engine_type ?? null,
-    modelVersion: result.model_version ?? null,
+    engineType,
+    modelVersion: result.model_version ?? (isMock ? 'mock-v1' : null),
     rawResult: result,
   };
 }
@@ -284,7 +303,7 @@ export function computeUnifiedAssessment(
         'Acoustic analysis flagged strong synthetic voice indicators, and conversational analysis detected overt scam patterns (credential theft, remote access, or coercive financial demands).',
       acousticSummary: `Synthetic voice indicators detected${
         acoustic.syntheticProbability !== null ? ` (P_synth=${(acoustic.syntheticProbability * 100).toFixed(1)}%)` : ''
-      } by ${acoustic.engineType || 'AASIST'}.`,
+      } by ${acoustic.engineType || 'acoustic defense'}.`,
       semanticSummary: `High-risk scam intent flagged: ${semantic.reasons.join(' ')}`,
       recommendedAction:
         'Immediately disconnect. Do not share OTPs, passwords, or initiate fund transfers. Independently verify the caller through official contact details.',
@@ -382,7 +401,7 @@ export function computeUnifiedAssessment(
         ? 'Transcript contains nominal conversation (no suspicious scam patterns).'
         : 'Transcript contains insufficient or baseline conversation.',
     recommendedAction: isAcousticUnavailable
-      ? 'Attach an audio recording to evaluate voice cloning risk with backend AASIST.'
+      ? 'Attach an audio recording to evaluate voice cloning risk with the configured backend engine.'
       : 'Awaiting audio sample or caller transcript to begin dual-layer assessment.',
     disclaimer,
   };

@@ -3,17 +3,17 @@ import { ShieldCheck, Cpu, Database, Server } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-slate-800/80 bg-slate-950/60 mt-auto">
+    <footer className="border-t border-slate-200 bg-white mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs text-slate-400 font-mono">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs text-slate-600 font-mono">
                 Smart India Hackathon (SIH 2026) • Problem Statement SIH26104
               </span>
             </div>
-            <span className="hidden sm:inline text-slate-700 text-xs">•</span>
+            <span className="hidden sm:inline text-slate-300 text-xs">•</span>
             <span className="text-[11px] text-slate-500 font-mono">
               Developed by Kevin Matthew S
             </span>
@@ -27,7 +27,7 @@ export const Footer: React.FC = () => {
               <Database className="w-3 h-3 text-slate-400" /> PostgreSQL
             </span>
             <span className="flex items-center gap-1">
-              <Cpu className="w-3 h-3 text-cyan-400" /> Modular ML Interface
+              <Cpu className="w-3 h-3 text-indigo-600" /> Modular ML Interface
             </span>
           </div>
         </div>

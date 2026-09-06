@@ -250,12 +250,12 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-2xl p-8 transition-all text-center backdrop-blur-md ${
+        className={`relative border-2 border-dashed rounded-2xl p-8 transition-all text-center ${
           isDragging
-            ? 'border-cyan-400 bg-cyan-950/20 scale-[1.01]'
+            ? 'border-indigo-500 bg-indigo-50/80 scale-[1.01]'
             : selectedFile
-            ? 'border-slate-700 bg-slate-900/40'
-            : 'border-slate-800 bg-slate-950/50 hover:border-slate-700 hover:bg-slate-900/20'
+            ? 'border-indigo-200 bg-indigo-50/30'
+            : 'border-slate-300 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-50'
         }`}
       >
         <input
@@ -268,36 +268,36 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
         {isRecording || isStoppingRecording ? (
           <div className="py-6 flex flex-col items-center justify-center space-y-4">
-            <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/30">
-              <span className="absolute w-full h-full rounded-full bg-red-500/20 animate-ping" />
-              <Mic className="w-8 h-8 text-red-400" />
+            <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-red-50 border border-red-200">
+              <span className="absolute w-full h-full rounded-full bg-red-100 animate-ping opacity-60" />
+              <Mic className="w-8 h-8 text-red-600" />
             </div>
             <div>
-              <span className="font-mono text-2xl font-bold text-red-400">
+              <span className="font-mono text-2xl font-bold text-red-600">
                 {isStoppingRecording ? 'Processing…' : formatSecs(recordingSeconds)}
               </span>
-              <p className="text-xs font-mono text-slate-400 mt-1">
+              <p className="text-xs font-mono text-slate-500 mt-1">
                 {isStoppingRecording ? 'Assembling audio blob…' : 'Recording live audio stream from microphone...'}
               </p>
             </div>
             <button
               onClick={stopRecording}
               disabled={isStoppingRecording}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer"
             >
               <Square className="w-4 h-4" /> Stop Recording
             </button>
           </div>
         ) : selectedFile ? (
           <div className="py-4 flex flex-col items-center justify-center space-y-4">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600">
               <FileAudio className="w-7 h-7" />
             </div>
             <div className="max-w-md text-center">
-              <h4 className="text-sm font-semibold text-slate-100 truncate">
+              <h4 className="text-sm font-semibold text-slate-900 truncate">
                 {selectedFile.name}
               </h4>
-              <p className="text-xs font-mono text-slate-400 mt-1">
+              <p className="text-xs font-mono text-slate-500 mt-1">
                 {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • {selectedFile.type || 'audio file'}
               </p>
             </div>
@@ -306,14 +306,14 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
-                className="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors"
+                className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 transition-colors shadow-xs cursor-pointer"
               >
                 Choose Different File
               </button>
               <button
                 onClick={runDetection}
                 disabled={isAnalyzing}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 text-slate-950 font-semibold text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold text-xs uppercase tracking-wider transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer"
               >
                 {isAnalyzing ? (
                   <>
@@ -329,31 +329,31 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
           </div>
         ) : (
           <div className="py-8 flex flex-col items-center justify-center space-y-4">
-            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 group-hover:text-cyan-400 transition-colors">
-              <UploadCloud className="w-8 h-8 text-cyan-400" />
+            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 transition-colors">
+              <UploadCloud className="w-8 h-8 text-indigo-600" />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-slate-200">
+              <h3 className="text-base font-semibold text-slate-800">
                 Drop audio recording here, or browse
               </h3>
-              <p className="text-xs text-slate-400">
-                Supports <span className="font-mono text-slate-300">WAV, MP3, OGG, FLAC, M4A, AAC, WEBM</span> up to 25 MB
+              <p className="text-xs text-slate-500">
+                Supports <span className="font-mono text-slate-700">WAV, MP3, OGG, FLAC, M4A, AAC, WEBM</span> up to 25 MB
               </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(6,182,212,0.1)]"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer"
               >
                 Browse Audio File
               </button>
               <button
                 onClick={startRecording}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold uppercase tracking-wider transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold uppercase tracking-wider transition-all shadow-xs cursor-pointer"
               >
-                <Mic className="w-3.5 h-3.5 text-red-400" /> Record Live Microphone
+                <Mic className="w-3.5 h-3.5 text-red-600" /> Record Live Microphone
               </button>
             </div>
           </div>
@@ -361,19 +361,19 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
         {/* Pipeline progress bar */}
         {isAnalyzing && (
-          <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
+          <div className="mt-6 pt-6 border-t border-slate-200 space-y-3">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-cyan-400 flex items-center gap-2">
+              <span className="text-indigo-600 flex items-center gap-2 font-semibold">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 {PIPELINE_STAGES[pipelineStage]}
               </span>
-              <span className="text-slate-400">
+              <span className="text-slate-500">
                 Step {pipelineStage + 1} of {PIPELINE_STAGES.length}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300 rounded-full"
+                className="h-full bg-indigo-600 transition-all duration-300 rounded-full"
                 style={{ width: `${((pipelineStage + 1) / PIPELINE_STAGES.length) * 100}%` }}
               />
             </div>
@@ -383,18 +383,18 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
 
       {/* Error display */}
       {errorMessage && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-xs">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs shadow-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       {/* Instant Result Summary Card */}
       {result && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-6 backdrop-blur-md shadow-xl space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500">
                 Detection Result
               </span>
               <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -429,7 +429,7 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => router.push(`/detections/${result.id}`)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs tracking-wider uppercase transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)]"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs tracking-wider uppercase transition-all shadow-xs cursor-pointer"
               >
                 Inspect Case Details <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -441,10 +441,10 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
             <div
               className={`p-4 rounded-xl border ${
                 result.action === 'BLOCK'
-                  ? 'bg-red-950/30 border-red-500/40 text-red-300'
+                  ? 'bg-red-50 border-red-200 text-red-900'
                   : result.action === 'VERIFY'
-                  ? 'bg-amber-950/30 border-amber-500/40 text-amber-300'
-                  : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
               } space-y-2`}
             >
               <div className="flex items-center justify-between">
@@ -476,27 +476,27 @@ export const DetectionDropzone: React.FC<DetectionDropzoneProps> = ({
               size="lg"
             />
 
-            <div className="space-y-3 font-mono text-xs text-slate-300">
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
+            <div className="space-y-3 font-mono text-xs text-slate-700">
+              <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Attack Classification:</span>
-                <span className="font-semibold text-slate-200">{result.attack_type || 'Not classified'}</span>
+                <span className="font-semibold text-slate-800">{result.attack_type || 'Not classified'}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
+              <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Engine / Model Version:</span>
-                <span className="text-cyan-400">
+                <span className="text-indigo-600 font-semibold">
                   {formatModelDisplayName(result.model_version, result.engine_type)}
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-800/60">
+              <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Analysis Latency:</span>
-                <span className="text-slate-200">{result.processing_time_ms} ms</span>
+                <span className="text-slate-800 font-semibold">{result.processing_time_ms} ms</span>
               </div>
             </div>
           </div>
 
           {result.explanation && (
-            <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300 leading-relaxed">
-              <span className="font-mono text-slate-400 block mb-1 font-semibold uppercase text-[10px]">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
+              <span className="font-mono text-slate-500 block mb-1 font-semibold uppercase text-[10px]">
                 Model Analysis:
               </span>
               {result.explanation}
