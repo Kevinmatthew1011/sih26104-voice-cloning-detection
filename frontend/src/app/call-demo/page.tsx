@@ -15,6 +15,9 @@ import {
   Radio,
   RotateCcw,
   Sparkles,
+  Waves,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import {
@@ -28,6 +31,12 @@ import {
   ScamAssessment,
   UnifiedAssessment,
 } from '@/lib/scam-demo';
+import {
+  CallAudioStreamClient,
+  LiveAcousticUpdate,
+  LiveSessionSummary,
+  computeLiveAcousticAssessment,
+} from '@/lib/call-audio-stream';
 
 type Status = 'idle' | 'ringing' | 'active' | 'ended';
 
@@ -78,6 +87,17 @@ export default function CallDemoPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Phase 3: Real-Time Audio Streaming State
+  const [isStreamingMic, setIsStreamingMic] = useState(false);
+  const [liveStreamingState, setLiveStreamingState] = useState<string>('idle');
+  const [liveAcousticUpdates, setLiveAcousticUpdates] = useState<LiveAcousticUpdate[]>([]);
+  const [finalSessionSummary, setFinalSessionSummary] = useState<LiveSessionSummary | null>(null);
+  const [userOverrideWarning, setUserOverrideWarning] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+
+  const streamClientRef = useRef<CallAudioStreamClient | null>(null);
+  const latestUpdateRef = useRef<LiveAcousticUpdate | null>(null);
+
   const scenario = getDemoScenario(scenarioId);
   const busy = call.status === 'ringing' || call.status === 'active';
 
@@ -104,23 +124,35 @@ export default function CallDemoPage() {
 
   // Automated call ending upon HIGH unified threat
   useEffect(() => {
-    if (call.status !== 'active' || call.unified.verdict !== 'HIGH' || !autoEnd) return;
+    if (call.status !== 'active' || call.unified.verdict !== 'HIGH' || !autoEnd || userOverrideWarning) return;
     const timer = setTimeout(() => {
-      setCall((previous) =>
-        previous.status === 'active'
-          ? {
-              ...previous,
-              status: 'ended',
-              outcome: 'Automatically ended: high-risk scam & synthetic indicators',
-            }
-          : previous
-      );
-    }, 2000);
+      handleEndCall('Automatically ended: high-risk scam & synthetic indicators');
+    }, 2500);
     return () => clearTimeout(timer);
-  }, [call.status, call.unified.verdict, autoEnd]);
+  }, [call.status, call.unified.verdict, autoEnd, userOverrideWarning]);
+
+  // Clean up streaming on unmount
+  useEffect(() => {
+    return () => {
+      if (streamClientRef.current) {
+        streamClientRef.current.disconnect();
+      }
+    };
+  }, []);
 
   // Handle Scenario Selection: populates transcript, resets acoustic, computes semantic & unified
   function handleScenarioChange(id: string) {
+    if (streamClientRef.current) {
+      streamClientRef.current.disconnect();
+      streamClientRef.current = null;
+    }
+    setIsStreamingMic(false);
+    latestUpdateRef.current = null;
+    setLiveAcousticUpdates([]);
+    setFinalSessionSummary(null);
+    setUserOverrideWarning(false);
+    setLiveError(null);
+
     setScenarioId(id);
     const nextScenario = getDemoScenario(id);
     setAudioFileName(null);
@@ -216,6 +248,17 @@ export default function CallDemoPage() {
   }
 
   function startCall() {
+    if (streamClientRef.current) {
+      streamClientRef.current.disconnect();
+      streamClientRef.current = null;
+    }
+    setIsStreamingMic(false);
+    latestUpdateRef.current = null;
+    setLiveAcousticUpdates([]);
+    setFinalSessionSummary(null);
+    setUserOverrideWarning(false);
+    setLiveError(null);
+
     if (call.status === 'ended' && call.messages.length > 0) {
       setHistory((previous) => [
         {
@@ -228,7 +271,7 @@ export default function CallDemoPage() {
         ...previous,
       ].slice(0, 10));
     }
-    const currentAcoustic = call.acoustic;
+    const currentAcoustic = computeAcousticAssessment(null);
     const semantic = assessScamTranscript([]);
     const unified = computeUnifiedAssessment(currentAcoustic, semantic);
     setCall({
@@ -242,11 +285,112 @@ export default function CallDemoPage() {
     setDraft('');
   }
 
-  function endCall(outcome: string) {
-    setCall((previous) => ({ ...previous, status: 'ended', outcome }));
+  async function handleAnswerCall() {
+    setCall((prev) => ({ ...prev, status: 'active' }));
+    setIsStreamingMic(true);
+    setLiveStreamingState('connecting');
+    setLiveAcousticUpdates([]);
+    setLiveError(null);
+    setUserOverrideWarning(false);
+    latestUpdateRef.current = null;
+
+    const client = new CallAudioStreamClient();
+    streamClientRef.current = client;
+
+    try {
+      await client.start({
+        onStatus: (statusEvent) => {
+          setLiveStreamingState(statusEvent.state);
+          setCall((prev) => {
+            const liveAcoustic = computeLiveAcousticAssessment(
+              latestUpdateRef.current,
+              statusEvent.state,
+              null
+            );
+            return {
+              ...prev,
+              acoustic: liveAcoustic,
+              unified: computeUnifiedAssessment(liveAcoustic, prev.semantic),
+            };
+          });
+        },
+        onAcousticUpdate: (update) => {
+          latestUpdateRef.current = update;
+          setLiveAcousticUpdates((prev) => [...prev, update]);
+          setCall((prev) => {
+            const liveAcoustic = computeLiveAcousticAssessment(update);
+            return {
+              ...prev,
+              acoustic: liveAcoustic,
+              unified: computeUnifiedAssessment(liveAcoustic, prev.semantic),
+            };
+          });
+        },
+        onError: (errEvent) => {
+          setLiveError(errEvent.message);
+          setCall((prev) => {
+            const errorAcoustic = computeLiveAcousticAssessment(null, undefined, errEvent.message);
+            return {
+              ...prev,
+              acoustic: errorAcoustic,
+              unified: computeUnifiedAssessment(errorAcoustic, prev.semantic),
+            };
+          });
+        },
+        onSummary: (summary) => {
+          setFinalSessionSummary(summary);
+        },
+        onClose: () => {
+          setIsStreamingMic(false);
+          setLiveStreamingState('closed');
+        },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setLiveError(message);
+      setIsStreamingMic(false);
+      setCall((prev) => {
+        const errorAcoustic = computeLiveAcousticAssessment(null, undefined, message);
+        return {
+          ...prev,
+          acoustic: errorAcoustic,
+          unified: computeUnifiedAssessment(errorAcoustic, prev.semantic),
+        };
+      });
+    }
+  }
+
+  async function handleEndCall(outcome: string) {
+    setIsStreamingMic(false);
+    if (streamClientRef.current?.isStreaming()) {
+      try {
+        const summary = await streamClientRef.current.stop();
+        if (summary) {
+          setFinalSessionSummary(summary);
+        }
+      } catch {
+        // Ignore stop error
+      }
+    }
+    setCall((previous) => ({
+      ...previous,
+      status: 'ended',
+      outcome,
+    }));
   }
 
   function resetToNewDemo() {
+    if (streamClientRef.current) {
+      streamClientRef.current.disconnect();
+      streamClientRef.current = null;
+    }
+    setIsStreamingMic(false);
+    latestUpdateRef.current = null;
+    setLiveAcousticUpdates([]);
+    setFinalSessionSummary(null);
+    setUserOverrideWarning(false);
+    setLiveError(null);
+
     if (call.messages.length > 0) {
       setHistory((previous) => [
         {
@@ -643,42 +787,174 @@ export default function CallDemoPage() {
                     ? 'Connected · Monitoring Dual-Layer Telemetry'
                     : call.status === 'ringing'
                     ? 'Incoming simulated call ringing…'
-                    : call.status}
+                    : 'Call session ended'}
                 </p>
+
+                {call.status === 'active' && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    {isStreamingMic ? (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono animate-pulse">
+                        <Waves className="w-3.5 h-3.5 text-cyan-400" />
+                        Live Microphone Stream Active (16 kHz PCM)
+                      </span>
+                    ) : liveError ? (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono">
+                        <MicOff className="w-3.5 h-3.5 text-amber-400" />
+                        Microphone Offline — Semantic Monitoring Active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-xs font-mono">
+                        <Mic className="w-3.5 h-3.5" />
+                        Dual-Layer Monitoring Active
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* In-Call High Threat Warning Banner with Continue / End Call Options */}
+              {call.status === 'active' && call.unified.verdict === 'HIGH' && !userOverrideWarning && (
+                <div
+                  role="alert"
+                  className="p-3.5 rounded-xl bg-red-950/70 border border-red-500/60 space-y-2 text-left my-2 shadow-lg"
+                >
+                  <div className="flex items-center gap-2 text-red-300 font-bold text-xs font-mono">
+                    <ShieldAlert className="w-4 h-4 text-red-400 animate-pulse shrink-0" />
+                    <span>HIGH THREAT DETECTED IN ACTIVE CALL</span>
+                  </div>
+                  <p className="text-[11px] text-red-200/90 font-mono leading-relaxed">
+                    Acoustic telemetry flagged synthetic voice characteristics and conversational analysis detected overt scam demands.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleEndCall('Terminated immediately by user upon high threat alert')}
+                      className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-mono font-bold text-xs flex items-center gap-1.5 shadow cursor-pointer transition-all"
+                    >
+                      <PhoneOff className="w-3.5 h-3.5" /> End Call Immediately
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserOverrideWarning(true)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono text-xs cursor-pointer transition-all"
+                    >
+                      Continue Call (Acknowledge Risk)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap justify-center gap-3 pt-2">
                 {call.status === 'idle' && (
-                  <button className={`${buttonStyle} bg-cyan-500 text-slate-950 font-bold border-cyan-400 hover:bg-cyan-400`} onClick={startCall}>
+                  <button
+                    className={`${buttonStyle} bg-cyan-500 text-slate-950 font-bold border-cyan-400 hover:bg-cyan-400`}
+                    onClick={startCall}
+                  >
                     Simulate Incoming Call
                   </button>
                 )}
                 {call.status === 'ringing' && (
                   <>
-                    <button className={`${buttonStyle} bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500`} onClick={() => setCall((prev) => ({ ...prev, status: 'active' }))}>
-                      Answer
+                    <button
+                      className={`${buttonStyle} bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500 flex items-center gap-1.5`}
+                      onClick={handleAnswerCall}
+                    >
+                      <Mic className="w-3.5 h-3.5" /> Answer & Stream Audio
                     </button>
-                    <button className={`${buttonStyle} text-red-400 border-red-500/40 hover:bg-red-950/40`} onClick={() => endCall('Declined before answering')}>
+                    <button
+                      className={`${buttonStyle} text-red-400 border-red-500/40 hover:bg-red-950/40`}
+                      onClick={() => handleEndCall('Declined before answering')}
+                    >
                       Decline
                     </button>
                   </>
                 )}
                 {call.status === 'active' && (
-                  <button className={`${buttonStyle} bg-red-600/80 text-white border-red-500 hover:bg-red-600 flex items-center gap-2`} onClick={() => endCall('Ended by user')}>
+                  <button
+                    className={`${buttonStyle} bg-red-600/80 text-white border-red-500 hover:bg-red-600 flex items-center gap-2`}
+                    onClick={() => handleEndCall('Ended by user')}
+                  >
                     <PhoneOff className="h-4 w-4" /> End Simulated Call
                   </button>
                 )}
                 {call.status === 'ended' && (
-                  <button className={`${buttonStyle} bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700`} onClick={resetToNewDemo}>
+                  <button
+                    className={`${buttonStyle} bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700`}
+                    onClick={resetToNewDemo}
+                  >
                     Reset Call Simulator
                   </button>
                 )}
               </div>
 
+              {/* Call Outcome & Final Security Explanation Card */}
               {call.status === 'ended' && (
-                <p role="status" className="rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs font-mono text-slate-400 mt-2">
-                  {call.outcome || 'Call session completed'}. No real telephone carrier calls or hardware lines affected.
-                </p>
+                <div className="space-y-3 pt-2">
+                  <p role="status" className="rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs font-mono text-slate-400 text-center">
+                    {call.outcome || 'Call session completed'}. No real telephone carrier calls or hardware lines affected.
+                  </p>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/90 p-4 text-left space-y-2.5 font-mono text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-400 uppercase font-bold text-[11px] flex items-center gap-1.5">
+                        <Info className="w-3.5 h-3.5 text-cyan-400" />
+                        Final Security Explanation
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          call.unified.verdict === 'HIGH'
+                            ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            : call.unified.verdict === 'MEDIUM'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : call.unified.verdict === 'LOW'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {call.unified.verdict} THREAT
+                      </span>
+                    </div>
+
+                    <p className="text-slate-200 text-xs leading-relaxed">{call.unified.explanation}</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                      <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-0.5">
+                        <span className="text-slate-500 uppercase font-bold text-[10px] block">Acoustic Telemetry Summary</span>
+                        <span className="text-slate-300">
+                          {finalSessionSummary
+                            ? `${finalSessionSummary.windows_analyzed} sliding windows (${finalSessionSummary.total_duration_seconds}s), Peak P(synth)=${
+                                finalSessionSummary.peak_synthetic_probability !== null
+                                  ? (finalSessionSummary.peak_synthetic_probability * 100).toFixed(1) + '%'
+                                  : 'None'
+                              }`
+                            : liveAcousticUpdates.length > 0
+                            ? `${liveAcousticUpdates.length} sliding windows analyzed`
+                            : call.acoustic.syntheticProbability !== null
+                            ? `P_synth=${(call.acoustic.syntheticProbability * 100).toFixed(1)}%`
+                            : isAcousticUnavailable
+                            ? 'Acoustic analysis unavailable — semantic monitoring only'
+                            : 'Acoustic not evaluated'}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-0.5">
+                        <span className="text-slate-500 uppercase font-bold text-[10px] block">Semantic Intent Summary</span>
+                        <span className="text-slate-300">
+                          {call.semantic.reasons.length > 0
+                            ? `${call.semantic.reasons.length} scam indicator${call.semantic.reasons.length === 1 ? '' : 's'} flagged`
+                            : 'No suspicious scam patterns detected'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 text-[11px] text-cyan-300 font-semibold border-t border-slate-800/60">
+                      Recommendation: {call.unified.recommendedAction}
+                    </div>
+                    <p className="text-slate-500 text-[10px] italic">
+                      {call.unified.disclaimer}
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -737,6 +1013,71 @@ export default function CallDemoPage() {
                 <p className="text-slate-200 font-bold mt-0.5">{call.acoustic.action || 'NOT_EVALUATED'}</p>
               </div>
             </div>
+
+            {/* Real-Time Sliding-Window Acoustic Telemetry Feed */}
+            {isStreamingMic && (
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-cyan-500/40 space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-cyan-300 font-bold flex items-center gap-1.5">
+                    <Waves className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
+                    Sliding-Window Monitoring (64,600 samples / window)
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {liveStreamingState === 'buffering'
+                      ? 'Buffering Audio…'
+                      : `${liveAcousticUpdates.length} window${liveAcousticUpdates.length === 1 ? '' : 's'} analyzed`}
+                  </span>
+                </div>
+
+                {liveAcousticUpdates.length > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                      Live Window Feed (75% overlap / 16,150-sample hop):
+                    </span>
+                    <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] font-mono pr-1">
+                      {liveAcousticUpdates.slice(-4).reverse().map((w, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-1.5 rounded bg-slate-900/90 border border-slate-800"
+                        >
+                          <span className="text-slate-300">
+                            Window #{w.window_index} ({w.start_seconds.toFixed(1)}s - {w.end_seconds.toFixed(1)}s)
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              w.risk_level === 'high'
+                                ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                : w.risk_level === 'medium'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                          >
+                            P={(w.synthetic_probability * 100).toFixed(1)}% &bull; {w.risk_level.toUpperCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 font-mono italic">
+                    Buffering incoming microphone samples to fulfill initial 64,600-sample AASIST window (~4.0s @ 16 kHz)…
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Offline or Error Telemetry Fallback Alert */}
+            {liveError && (
+              <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs font-mono text-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <MicOff className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Acoustic Monitoring Status</span>
+                </div>
+                <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                  {liveError}
+                </p>
+              </div>
+            )}
 
             {/* Audio Clip Attachment */}
             <div className="space-y-2 pt-1 border-t border-slate-800/80">

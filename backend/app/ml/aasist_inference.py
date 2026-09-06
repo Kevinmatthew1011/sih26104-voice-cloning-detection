@@ -394,6 +394,64 @@ class AASISTInferenceEngine:
         wav, _ = self._load_and_resample_full(audio_source)
         return pad_waveform(wav, TARGET_SAMPLE_COUNT)
 
+    def predict_window(self, waveform: np.ndarray) -> Dict[str, Any]:
+        """
+        Run real-time sliding-window inference on a single 64,600-sample 16 kHz window (~4.0375s).
+        Returns exact acoustic probabilities, prediction, and security action.
+        """
+        if not self.is_model_available():
+            raise RuntimeError(
+                f"AASIST deep learning model artifact is not available. "
+                f"Model weights file '{self.weights_path}' was not found."
+            )
+        if not self.is_loaded or self.model is None:
+            self.load_model()
+
+        if waveform.shape[0] != TARGET_SAMPLE_COUNT:
+            waveform = pad_waveform(waveform, TARGET_SAMPLE_COUNT)
+
+        tensor_x = torch.FloatTensor(np.expand_dims(waveform, axis=0)).to(self.device)
+        try:
+            with torch.inference_mode():
+                _, logits_tensor = self.model(tensor_x)
+                logits_np = logits_tensor.cpu().numpy()
+        except torch.cuda.OutOfMemoryError:
+            logger.warning("CUDA OOM during single-window AASIST inference. Executing CPU fallback...")
+            torch.cuda.empty_cache()
+            self.model.to("cpu")
+            with torch.inference_mode():
+                _, logits_tensor = self.model(torch.FloatTensor(np.expand_dims(waveform, axis=0)).to("cpu"))
+                logits_np = logits_tensor.numpy()
+            self.model.to(self.device)
+
+        s0 = float(logits_np[0][0])
+        s1 = float(logits_np[0][1])
+        logits_t = torch.tensor([s0, s1], dtype=torch.float32)
+        probs = F.softmax(logits_t, dim=0).numpy()
+        prob_synth = float(probs[0])
+        prob_real = float(probs[1])
+        cm_score = float(s1 - s0)
+        pred = "synthetic" if prob_synth >= 0.50 else "real"
+        confidence = prob_synth if pred == "synthetic" else prob_real
+
+        if pred == "synthetic":
+            risk_level = "high" if confidence >= 0.70 else "medium"
+            action = "block" if confidence >= 0.70 else "verify"
+        else:
+            risk_level = "low"
+            action = "allow"
+
+        return {
+            "synthetic_probability": round(prob_synth, 4),
+            "real_probability": round(prob_real, 4),
+            "cm_score": round(cm_score, 4),
+            "prediction": pred,
+            "confidence": round(confidence, 4),
+            "risk_level": risk_level,
+            "action": action,
+            "model_version": self.metadata.get("model_version", "aasist-v1"),
+        }
+
     def predict_audio_multiwindow(
         self,
         audio_source: Union[str, Path, bytes, np.ndarray],

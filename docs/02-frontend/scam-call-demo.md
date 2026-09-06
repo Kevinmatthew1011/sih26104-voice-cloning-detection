@@ -79,10 +79,30 @@ The `/call-demo` page features a compact **Demo Mode Automation** card designed 
 
 1. Select a scenario from the presentation tabs or dropdown.
 2. Click **Run Scenario** for immediate 1-click dual-layer evaluation.
-3. Alternatively, click **Simulate Incoming Call** to demonstrate turn-by-turn interactive phone ringing, answering, and transcript streaming (at 2.5s intervals).
+3. Alternatively, click **Simulate Incoming Call** and then **Answer & Stream Audio** to demonstrate real-time continuous sliding-window call monitoring:
+   - Microphone captures browser audio at 16 kHz mono.
+   - Stream is transmitted over WebSocket (`/api/v1/detections/ws`).
+   - Sliding-window AASIST inference runs dynamically on 64,600-sample windows.
+   - Live acoustic and conversational risk updates compute unified verdicts in real time.
 4. Inject custom phrases to test edge cases or evasion attempts.
-5. Review the **Unified Threat Assessment** banner, matched semantic indicators, and acoustic telemetry.
-6. With automatic termination enabled, calls reaching `HIGH` threat terminate after a 2-second safety warning.
+5. If high threat is detected during the call, review the in-call warning alert with options to **End Call Immediately** or **Continue Call (Acknowledge Risk)**.
+6. Upon ending the call, review the **Final Security Explanation** card detailing acoustic telemetry, conversational indicators, and next steps.
+
+## Phase 3: Real-Time WebSocket Call Monitoring
+
+Phase 3 upgrades `/call-demo` from batch-only analysis to continuous, real-time sliding-window monitoring:
+
+- **WebSocket Endpoint**: `ws://<host>:8000/api/v1/detections/ws?format=pcm16`
+- **Audio Capture**: Browser `AudioContext` and `ScriptProcessorNode` capturing 16 kHz 16-bit linear PCM directly from user microphone with sub-millisecond in-memory buffering.
+- **Sliding-Window Geometry**:
+  - Sample Rate: 16,000 Hz.
+  - Window Size: 64,600 samples (~4.0375 seconds).
+  - Hop Size: 16,150 samples (~1.009375 seconds, 75% overlap).
+  - Minimum audio required before inference: 64,600 samples (telemetry reports buffering state).
+- **Graceful Fallback**: If microphone permission is denied or backend WebSocket is offline:
+  `"Real-time acoustic analysis unavailable — semantic monitoring remains active."`
+- **Zero Fabrication**: No simulated probabilities are emitted during buffering or when the model is unavailable; actual model inference is required for all synthetic probabilities.
+- **Safety Framing**: Low-risk telemetry states explicitly note: *"Low risk does NOT imply verified safety. Spoof detection and keyword heuristics cannot guarantee absolute authenticity."*
 
 ## Verification
 
@@ -93,6 +113,11 @@ npm run lint
 npm run build
 ```
 
+Run backend tests:
+```bash
+nix-shell --run "cd backend && ./.venv/bin/pytest"
+```
+
 The test suite covers:
 - 1. Built-in scam scenarios contain semantic indicators.
 - 2. Benign control remains benign/low when acoustic is genuine.
@@ -100,5 +125,11 @@ The test suite covers:
 - 4. Unified verdict still works when acoustic layer is unavailable.
 - 5. No scenario contains a hard-coded synthetic probability.
 - 6. No scenario claims guaranteed identity verification or guaranteed safety.
-- Backend failure and successful AASIST result handling in `runScenario`.
-- Schema extraction from backend `DetectionResult` and `SecurityDecisionDTO`.
+- 7. Real-time WebSocket connection handshake and buffering telemetry.
+- 8. Sliding-window AASIST inference triggers at $\ge 64,600$ samples and successive hops.
+- 9. Structured error handling for corrupt or invalid audio frames.
+- 10. AASIST unavailable fallback without crashing.
+- 11. Live acoustic update parsing and dynamic unified risk escalation.
+- 12. In-call high threat intervention with Continue or End Call actions.
+- 13. Preserving final session summary upon termination.
+- 14. Dual-mode support: both live streaming and batch file uploads remain fully functional.

@@ -2,7 +2,8 @@ import logging
 from typing import Optional
 from uuid import UUID
 from pathlib import Path
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, status
+import json
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query, status, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
@@ -30,6 +31,7 @@ from app.services.storage import AudioStorageService
 from app.services.detection.factory import get_detection_service
 from app.services.decision_engine import SecurityDecisionEngine
 from app.services.report_service import AuditReportBuilder
+from app.services.detection.streaming_detector import StreamingAASISTDetector
 from app.core.rate_limiter import rate_limit_detection, rate_limit_report
 
 logger = logging.getLogger("app.detections")
@@ -471,3 +473,112 @@ async def get_detection_report(
         )
 
     return AuditReportBuilder.build_report(case)
+
+
+@router.websocket("/ws")
+async def websocket_detection_endpoint(
+    websocket: WebSocket,
+    format: Optional[str] = Query(None),
+    engine: Optional[str] = Query(None),
+):
+    """
+    Real-Time WebSocket Call Monitoring Endpoint.
+
+    Streams live audio chunks from browser/client, maintains a temporal buffer,
+    executes sliding-window AASIST spoof inference (64,600 samples @ 16 kHz,
+    75% overlap / 16,150-sample hop), and pushes acoustic telemetry events.
+    """
+    await websocket.accept()
+
+    detector = StreamingAASISTDetector(engine_type=engine)
+    stream_format = format
+
+    # Send initial connection acknowledgment
+    await websocket.send_text(
+        json.dumps({
+            "type": "status",
+            "state": "connected",
+            "engine": detector.engine_type,
+            "window_samples": detector.window_length,
+            "hop_samples": detector.hop_length,
+            "sample_rate": detector.sample_rate,
+        })
+    )
+
+    try:
+        while True:
+            message = await websocket.receive()
+
+            if message.get("type") == "websocket.disconnect":
+                break
+
+            # Handle text control frame (JSON)
+            if "text" in message and message["text"]:
+                try:
+                    payload = json.loads(message["text"])
+                except Exception:
+                    payload = {}
+
+                action = payload.get("action")
+                if action == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+                    continue
+
+                if action in ("stop", "end_call"):
+                    summary = detector.get_session_summary()
+                    await websocket.send_text(json.dumps(summary))
+                    await websocket.close()
+                    break
+
+                if "format" in payload:
+                    stream_format = str(payload["format"])
+                    continue
+
+                if action == "status":
+                    status_ev = detector.get_buffering_status()
+                    await websocket.send_text(json.dumps(status_ev))
+                    continue
+
+            # Handle binary audio chunk
+            if "bytes" in message and message["bytes"]:
+                chunk = message["bytes"]
+                try:
+                    events = detector.process_chunk(chunk, specified_format=stream_format)
+                    for ev in events:
+                        await websocket.send_text(json.dumps(ev))
+                except ValueError as ve:
+                    logger.warning("Invalid audio payload received on WebSocket: %s", ve)
+                    await websocket.send_text(
+                        json.dumps({
+                            "type": "error",
+                            "code": "INVALID_AUDIO_PAYLOAD",
+                            "message": str(ve),
+                        })
+                    )
+                except (RuntimeError, FileNotFoundError) as me:
+                    logger.error("AASIST engine inference error during streaming: %s", me)
+                    await websocket.send_text(
+                        json.dumps({
+                            "type": "error",
+                            "code": "AASIST_UNAVAILABLE",
+                            "message": "Real-time acoustic analysis unavailable — semantic monitoring remains active.",
+                            "detail": str(me),
+                        })
+                    )
+                except Exception as ex:
+                    logger.exception("Unexpected error in streaming detection: %s", ex)
+                    await websocket.send_text(
+                        json.dumps({
+                            "type": "error",
+                            "code": "STREAM_PROCESSING_ERROR",
+                            "message": "A processing error occurred during acoustic analysis.",
+                            "detail": str(ex),
+                        })
+                    )
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected.")
+    except Exception as exc:
+        logger.warning("WebSocket streaming connection closed with exception: %s", exc)
+    finally:
+        detector.cleanup()

@@ -115,3 +115,15 @@ class AASISTDetectionService(BaseDetectionService):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"AASIST deep learning inference failed: {str(e)}",
             ) from e
+
+    def predict_window(self, waveform: Any) -> Dict[str, Any]:
+        """
+        Run real-time inference on a single 64,600-sample window using AASIST.
+        """
+        if not self.engine.is_model_available():
+            raise RuntimeError(
+                f"AASIST deep learning model artifact is not available. "
+                f"Model weights file '{DEFAULT_AASIST_WEIGHTS}' was not found. "
+                "Please ensure the official AASIST.pth checkpoint is placed in the models directory."
+            )
+        return self.engine.predict_window(waveform)

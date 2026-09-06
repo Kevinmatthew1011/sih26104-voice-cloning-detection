@@ -10,6 +10,7 @@ from app.schemas.detection import (
     RiskLevelEnum,
 )
 from app.services.detection.base import BaseDetectionService
+import numpy as np
 
 
 class MockDetectionService(BaseDetectionService):
@@ -204,3 +205,31 @@ class MockDetectionService(BaseDetectionService):
             spectral_artifacts=spectral_artifacts,
             metadata_json=forensic_metadata,
         )
+
+    def predict_window(self, waveform: Any) -> Dict[str, Any]:
+        """
+        Deterministic mock sliding-window prediction for development and testing.
+        """
+        arr = np.asarray(waveform, dtype=np.float32)
+        rms = float(np.sqrt(np.mean(arr ** 2) + 1e-12))
+        rms_dbfs = round(20.0 * np.log10(rms), 2)
+
+        # Deterministic seed from waveform samples
+        chunk_seed = int(hashlib.sha256(arr[:min(len(arr), 500)].tobytes()).hexdigest()[:8], 16)
+        synth_prob = round(float((chunk_seed % 900 + 50) / 1000.0), 4)
+        pred = "synthetic" if synth_prob >= 0.50 else "real"
+        confidence = synth_prob if pred == "synthetic" else round(1.0 - synth_prob, 4)
+        risk_level = "high" if (pred == "synthetic" and confidence >= 0.70) else ("medium" if pred == "synthetic" else "low")
+        action = "block" if risk_level == "high" else ("verify" if risk_level == "medium" else "allow")
+
+        return {
+            "synthetic_probability": synth_prob,
+            "real_probability": round(1.0 - synth_prob, 4),
+            "cm_score": round(1.0 - 2.0 * synth_prob, 4),
+            "prediction": pred,
+            "confidence": confidence,
+            "risk_level": risk_level,
+            "action": action,
+            "model_version": self.model_version,
+            "rms_dbfs": rms_dbfs,
+        }

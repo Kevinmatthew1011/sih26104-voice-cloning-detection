@@ -8,6 +8,11 @@ import {
   computeUnifiedAssessment,
   runScenario,
 } from '../src/lib/scam-demo.ts';
+import {
+  parseLiveAcousticMessage,
+  computeLiveAcousticAssessment,
+  getWebSocketEndpoint,
+} from '../src/lib/call-audio-stream.ts';
 
 test('unassessed and ordinary speech never claim verified safety', () => {
   assert.equal(assessScamTranscript([]).risk, 'unassessed');
@@ -392,4 +397,153 @@ test('getDemoScenario supports backward-compatible ID lookup', () => {
   assert.equal(getDemoScenario('payment').id, 'executive');
   assert.equal(getDemoScenario('support').id, 'support');
   assert.equal(getDemoScenario('ordinary').id, 'ordinary');
+});
+
+// Phase 3: Real-Time WebSocket Live Call Monitoring Tests
+
+test('parseLiveAcousticMessage parses valid acoustic updates and status frames', () => {
+  const rawUpdate = JSON.stringify({
+    type: 'acoustic_update',
+    window_index: 0,
+    start_seconds: 0.0,
+    end_seconds: 4.0375,
+    synthetic_probability: 0.88,
+    prediction: 'synthetic',
+    risk_level: 'high',
+    action: 'BLOCK',
+    model_version: 'aasist-v1',
+    confidence: 0.88,
+    cumulative_windows: 1,
+  });
+
+  const parsed = parseLiveAcousticMessage(rawUpdate);
+  assert.ok(parsed);
+  assert.equal(parsed.type, 'acoustic_update');
+  assert.equal(parsed.synthetic_probability, 0.88);
+  assert.equal(parsed.prediction, 'synthetic');
+  assert.equal(parsed.risk_level, 'high');
+
+  const rawStatus = JSON.stringify({
+    type: 'status',
+    state: 'buffering',
+    buffered_seconds: 2.1,
+    required_seconds: 4.038,
+    samples_buffered: 33600,
+  });
+  const parsedStatus = parseLiveAcousticMessage(rawStatus);
+  assert.ok(parsedStatus);
+  assert.equal(parsedStatus.type, 'status');
+  assert.equal(parsedStatus.state, 'buffering');
+  assert.equal(parsedStatus.buffered_seconds, 2.1);
+});
+
+test('parseLiveAcousticMessage rejects invalid or corrupted payloads', () => {
+  assert.equal(parseLiveAcousticMessage(null), null);
+  assert.equal(parseLiveAcousticMessage('not-json'), null);
+  assert.equal(parseLiveAcousticMessage({}), null);
+  assert.equal(parseLiveAcousticMessage({ type: 'acoustic_update', synthetic_probability: 'invalid' }), null);
+  assert.equal(parseLiveAcousticMessage({ type: 'acoustic_update', synthetic_probability: 1.5 }), null);
+});
+
+test('computeLiveAcousticAssessment buffers without fabricating synthetic probability', () => {
+  const assessment = computeLiveAcousticAssessment(null, 'buffering');
+  assert.equal(assessment.status, 'analyzing');
+  assert.equal(assessment.syntheticProbability, null);
+  assert.equal(assessment.riskLevel, 'not_assessed');
+  assert.match(assessment.label, /buffering/i);
+});
+
+test('dynamic unified verdict escalates when live acoustic update detects synthetic speech', () => {
+  // 1. Initial state: caller message with scam demand (OTP theft) + acoustic buffering
+  const transcript = ['Please tell me your OTP immediately to avoid account suspension.'];
+  const semantic = assessScamTranscript(transcript);
+  assert.equal(semantic.risk, 'high');
+
+  // While buffering, acoustic is analyzing -> unified verdict is MEDIUM
+  const bufferingAcoustic = computeLiveAcousticAssessment(null, 'buffering');
+  const unifiedInitial = computeUnifiedAssessment(bufferingAcoustic, semantic);
+  assert.equal(unifiedInitial.verdict, 'MEDIUM');
+  assert.match(unifiedInitial.headline, /CAUTION/i);
+
+  // 2. Sliding window 0 completes with synthetic voice detection
+  const liveUpdate = {
+    type: 'acoustic_update',
+    window_index: 0,
+    start_seconds: 0.0,
+    end_seconds: 4.0375,
+    synthetic_probability: 0.93,
+    prediction: 'synthetic',
+    risk_level: 'high',
+    action: 'BLOCK',
+    model_version: 'aasist-v1',
+    confidence: 0.93,
+    cumulative_windows: 1,
+  };
+
+  const detectedAcoustic = computeLiveAcousticAssessment(liveUpdate);
+  assert.equal(detectedAcoustic.status, 'synthetic_detected');
+  assert.equal(detectedAcoustic.syntheticProbability, 0.93);
+
+  // Dynamic escalation: acoustic synthetic + semantic high => unified verdict HIGH!
+  const unifiedEscalated = computeUnifiedAssessment(detectedAcoustic, semantic);
+  assert.equal(unifiedEscalated.verdict, 'HIGH');
+  assert.match(unifiedEscalated.headline, /HIGH THREAT/i);
+  assert.match(unifiedEscalated.recommendedAction, /Immediately disconnect/i);
+});
+
+test('live acoustic genuine speech moderates risk but never claims verified safe', () => {
+  const liveUpdate = {
+    type: 'acoustic_update',
+    window_index: 0,
+    start_seconds: 0.0,
+    end_seconds: 4.0375,
+    synthetic_probability: 0.08,
+    prediction: 'real',
+    risk_level: 'low',
+    action: 'ALLOW',
+    model_version: 'aasist-v1',
+    confidence: 0.92,
+    cumulative_windows: 1,
+  };
+
+  const genuineAcoustic = computeLiveAcousticAssessment(liveUpdate);
+  assert.equal(genuineAcoustic.status, 'likely_genuine');
+
+  // Case A: Ordinary benign conversation + genuine acoustic => LOW
+  const benignSemantic = assessScamTranscript(['Are we meeting tomorrow at the library?']);
+  const unifiedLow = computeUnifiedAssessment(genuineAcoustic, benignSemantic);
+  assert.equal(unifiedLow.verdict, 'LOW');
+  assert.doesNotMatch(unifiedLow.headline, /verified safe/i);
+  assert.match(unifiedLow.disclaimer, /Low risk does NOT imply verified safety/i);
+
+  // Case B: Scam intent + genuine acoustic => remains MEDIUM (human social engineering scam)
+  const scamSemantic = assessScamTranscript(['Please transfer money immediately to the safe account.']);
+  assert.equal(scamSemantic.risk, 'high');
+  const unifiedMedium = computeUnifiedAssessment(genuineAcoustic, scamSemantic);
+  assert.equal(unifiedMedium.verdict, 'MEDIUM');
+  assert.match(unifiedMedium.headline, /Organic Voice Characteristics/i);
+});
+
+test('WebSocket error fallback preserves semantic monitoring', () => {
+  const errorAssessment = computeLiveAcousticAssessment(
+    null,
+    undefined,
+    'Real-time acoustic analysis unavailable — semantic monitoring remains active.'
+  );
+
+  assert.equal(errorAssessment.status, 'error');
+  assert.match(errorAssessment.label, /semantic monitoring remains active/i);
+
+  const semantic = assessScamTranscript(['Transfer all money to the safe account right now.']);
+  const unified = computeUnifiedAssessment(errorAssessment, semantic);
+  assert.equal(unified.verdict, 'MEDIUM');
+  assert.match(unified.headline, /Acoustic Analysis Unavailable/i);
+  assert.match(unified.explanation, /Acoustic analysis unavailable — semantic risk only/i);
+});
+
+test('getWebSocketEndpoint constructs proper ws URL with params', () => {
+  const wsUrl = getWebSocketEndpoint('http://localhost:8000', { format: 'pcm16', engine: 'aasist' });
+  assert.match(wsUrl, /^ws:\/\/localhost:8000\/api\/v1\/detections\/ws\?/);
+  assert.match(wsUrl, /format=pcm16/);
+  assert.match(wsUrl, /engine=aasist/);
 });

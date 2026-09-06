@@ -48,3 +48,10 @@ class BaseDetectionService(ABC):
         Return metadata regarding the current active model (version, architecture, capabilities).
         """
         pass
+
+    def predict_window(self, waveform: Any) -> Dict[str, Any]:
+        """
+        Run real-time inference on a single 64,600-sample temporal window (~4.0375s).
+        Returns a dict with: synthetic_probability, real_probability, prediction, risk_level, action, model_version.
+        """
+        raise NotImplementedError("predict_window not implemented for this detection service")
