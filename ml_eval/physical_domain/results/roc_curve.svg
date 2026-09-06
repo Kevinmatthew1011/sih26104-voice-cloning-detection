@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 480" width="100%" height="100%">
+  <rect width="680" height="480" fill="#0f172a" rx="10"/>
+  <text x="340" y="36" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="17" font-weight="700">AASIST Anti-Spoofing ROC Curves: Benchmark vs Physical Domain</text>
+  
+  <!-- Grid Lines -->
+  <line x1="80" y1="400" x2="600" y2="400" stroke="#334155" stroke-width="1.5"/>
+  <line x1="80" y1="60" x2="80" y2="400" stroke="#334155" stroke-width="1.5"/>
+  <line x1="80" y1="230" x2="600" y2="230" stroke="#1e293b" stroke-dasharray="4"/>
+  <line x1="340" y1="60" x2="340" y2="400" stroke="#1e293b" stroke-dasharray="4"/>
+  <line x1="600" y1="60" x2="600" y2="400" stroke="#1e293b" stroke-dasharray="4"/>
+  <line x1="80" y1="60" x2="600" y2="60" stroke="#1e293b" stroke-dasharray="4"/>
+  
+  <!-- Diagonal Random Reference -->
+  <line x1="80" y1="400" x2="600" y2="60" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6"/>
+  <text x="500" y="160" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Random Guess (AUC = 0.50)</text>
+
+  <!-- Clean ASVspoof 2019 LA ROC (AUC = 0.9993) -->
+  <polyline fill="none" stroke="#38bdf8" stroke-width="3" points="80,400 81,78 85,63 180,60 600,60"/>
+
+  <!-- Physical Challenge Set ROC (AUC = 0.4448) -->
+  <polyline fill="none" stroke="#f43f5e" stroke-width="3" points="80,400 600,400 600,60"/>
+
+  <!-- Ticks & Labels -->
+  <text x="80" y="420" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">0.0</text>
+  <text x="340" y="420" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">0.5</text>
+  <text x="600" y="420" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle">1.0</text>
+  <text x="340" y="445" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle">False Positive Rate (FPR)</text>
+
+  <text x="65" y="405" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="end">0.0</text>
+  <text x="65" y="235" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="end">0.5</text>
+  <text x="65" y="65" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="12" text-anchor="end">1.0</text>
+  <text x="25" y="230" fill="#e2e8f0" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" transform="rotate(-90 25 230)">True Positive Rate (TPR)</text>
+
+  <!-- Legend -->
+  <rect x="230" y="300" width="350" height="80" fill="#1e293b" rx="6" stroke="#334155"/>
+  <line x1="245" y1="325" x2="275" y2="325" stroke="#38bdf8" stroke-width="3"/>
+  <text x="285" y="329" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="12" font-weight="600">Clean ASVspoof 2019 (AUC = 0.9993, EER = 0.80%)</text>
+  <line x1="245" y1="355" x2="275" y2="355" stroke="#f43f5e" stroke-width="3"/>
+  <text x="285" y="359" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="12" font-weight="600">Physical Microphone (AUC = 0.4448, EER = 30.52%)</text>
+</svg>

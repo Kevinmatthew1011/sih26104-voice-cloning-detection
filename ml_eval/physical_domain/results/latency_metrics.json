@@ -1,0 +1,27 @@
+{
+  "hardware": {
+    "device": "cpu",
+    "processor": "x86_64 Host CPU",
+    "threads_used": 6,
+    "comparison_gpu": "NVIDIA GeForce RTX 4050 Laptop GPU (26.76 ms/sample)"
+  },
+  "window_geometry": {
+    "window_samples": 64600,
+    "window_duration_seconds": 4.0375,
+    "hop_samples": 16150,
+    "hop_duration_seconds": 1.009375,
+    "sample_rate_hz": 16000
+  },
+  "latency_breakdown": {
+    "unavoidable_initial_buffering_latency_ms": 4037.5,
+    "first_decision_latency_ms": 4384.37,
+    "per_window_inference_mean_ms": 438.8,
+    "per_window_inference_p50_ms": 433.57,
+    "per_window_inference_p95_ms": 533.57,
+    "per_window_inference_min_ms": 346.87,
+    "per_window_inference_max_ms": 553.65,
+    "windows_evaluated_count": 30,
+    "effective_update_cadence_ms": 1448.18,
+    "real_time_factor_rtf": 0.1087
+  }
+}

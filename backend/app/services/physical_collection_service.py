@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 import hashlib
+import shutil
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
@@ -126,6 +127,8 @@ class PhysicalCollectionService:
         capture_device_category: str = "laptop",
         capture_device_name: Optional[str] = None,
         playback_device: Optional[str] = None,
+        playback_device_category: Optional[str] = None,
+        distance_category: Optional[str] = "medium_30cm",
         browser: Optional[str] = None,
         browser_version: Optional[str] = None,
         os_name: Optional[str] = None,
@@ -138,9 +141,27 @@ class PhysicalCollectionService:
         prompt_id: Optional[str] = None,
         notes: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Validates and stages a physical acoustic recording into the ingestion pool."""
+        """Validates and stages a physical acoustic recording into the ingestion pool with strict anti-masquerading and audio quality gates."""
         if not audio_bytes or len(audio_bytes) < 100:
             raise ValueError("Audio payload is empty or too small (< 100 bytes).")
+
+        # Anti-masquerading & provenance validation
+        if ground_truth == "real":
+            if not human_identity or not human_identity.strip():
+                raise ValueError("human_identity is required for genuine real speech (e.g. HUMAN_SPK_01).")
+            if playback_device and playback_device.strip():
+                raise ValueError("Genuine speech cannot have a playback_device; genuine speech must be captured directly from a human speaker.")
+        elif ground_truth == "synthetic":
+            valid_replay_types = {"physical_replay", "physical_recapture"}
+            if capture_type not in valid_replay_types:
+                raise ValueError(
+                    f"Invalid capture_type '{capture_type}' for synthetic physical audio. "
+                    "Physical synthetic samples must be 'physical_replay' or 'physical_recapture'."
+                )
+            if not playback_device or not playback_device.strip():
+                raise ValueError("playback_device is required for physical replay recordings to document acoustic transducer provenance.")
+            if not generator_name or not generator_name.strip():
+                raise ValueError("generator_name is required for physical replay recordings to document the source synthesis engine.")
 
         sha256 = hashlib.sha256(audio_bytes).hexdigest()
         manifest = self.load_manifest()
@@ -170,10 +191,32 @@ class PhysicalCollectionService:
                 target_path.unlink()
             raise ValueError(f"Failed to decode audio stream: {e}")
 
+        # Quality & Duration Gates
         if duration_s < 1.0:
             if target_path.exists():
                 target_path.unlink()
             raise ValueError(f"Recording duration ({duration_s}s) is too short. Minimum duration is 1.0s.")
+
+        if duration_s > 60.0:
+            if target_path.exists():
+                target_path.unlink()
+            raise ValueError(f"Recording duration ({duration_s}s) exceeds maximum allowed duration of 60.0s.")
+
+        if telemetry.silence_percentage > 85.0:
+            if target_path.exists():
+                target_path.unlink()
+            raise ValueError(
+                f"Recording rejected: excessive silence ({telemetry.silence_percentage}% > 85.0%). "
+                "Please speak or play audio continuously throughout the recording."
+            )
+
+        if telemetry.clipping_percentage > 25.0:
+            if target_path.exists():
+                target_path.unlink()
+            raise ValueError(
+                f"Recording rejected: severe saturation clipping ({telemetry.clipping_percentage}% > 25.0%). "
+                "Please lower microphone input gain and re-record."
+            )
 
         record = PhysicalCaptureManifestRecord(
             sample_id=rec_id,
@@ -191,13 +234,15 @@ class PhysicalCollectionService:
             capture_device_category=capture_device_category,
             capture_device_name=capture_device_name,
             playback_device=playback_device,
+            playback_device_category=playback_device_category,
+            distance_category=distance_category or "medium_30cm",
             browser=browser,
             browser_version=browser_version,
             os=os_name,
             requested_getUserMedia_constraints=requested_constraints,
             applied_media_track_settings=applied_settings,
             media_recorder_mime_type=media_recorder_mime_type,
-            input_sample_rate=input_sample_rate or applied_settings.get("sampleRate") if applied_settings else 48000,
+            input_sample_rate=input_sample_rate or (applied_settings.get("sampleRate") if applied_settings else 48000),
             decoded_sample_rate=16000,
             duration_seconds=duration_s,
             room_environment=room_environment,
@@ -242,31 +287,39 @@ class PhysicalCollectionService:
         manifest = self.load_manifest()
         samples = manifest["samples"]
 
-        real_samples = [s for s in samples if s["ground_truth"] == "real"]
-        synth_samples = [s for s in samples if s["ground_truth"] == "synthetic"]
+        real_samples = [s for s in samples if s.get("ground_truth") == "real"]
+        synth_samples = [s for s in samples if s.get("ground_truth") == "synthetic"]
 
-        human_spks = sorted(list(set(s["human_identity"] for s in real_samples if s["human_identity"])))
+        # Physical replay count: synthetic samples captured via physical replay with playback device
+        replay_samples = [
+            s for s in synth_samples
+            if s.get("capture_type") in ["physical_replay", "physical_recapture"]
+            and s.get("playback_device")
+        ]
+        physical_replay_count = len(replay_samples)
+
+        human_spks = sorted(list(set(s["human_identity"] for s in real_samples if s.get("human_identity"))))
         human_spk_count = len(human_spks)
 
         # Per human speaker statistics
         per_human_speaker = {}
         for spk in human_spks:
-            spk_samples = [s for s in real_samples if s["human_identity"] == spk]
-            devs = set(s["capture_device_category"] for s in spk_samples)
-            sessions = set(s["capture_session_id"] for s in spk_samples)
+            spk_samples = [s for s in real_samples if s.get("human_identity") == spk]
+            devs = sorted(list(set(s.get("capture_device_category", "unknown") for s in spk_samples)))
+            sessions = set(s.get("capture_session_id") for s in spk_samples if s.get("capture_session_id"))
             per_human_speaker[spk] = {
                 "genuine_sample_count": len(spk_samples),
-                "device_categories": list(devs),
+                "device_categories": devs,
                 "session_count": len(sessions),
                 "percentage_of_real_class": round((len(spk_samples) / (len(real_samples) + 1e-9)) * 100, 1),
             }
 
         # Per device category statistics
-        device_cats = sorted(list(set(s["capture_device_category"] for s in samples)))
+        device_cats = sorted(list(set(s.get("capture_device_category", "unknown") for s in samples)))
         per_device_category = {}
         for dev in device_cats:
-            dev_real = len([s for s in real_samples if s["capture_device_category"] == dev])
-            dev_synth = len([s for s in synth_samples if s["capture_device_category"] == dev])
+            dev_real = len([s for s in real_samples if s.get("capture_device_category") == dev])
+            dev_synth = len([s for s in synth_samples if s.get("capture_device_category") == dev])
             per_device_category[dev] = {
                 "real_count": dev_real,
                 "synthetic_count": dev_synth,
@@ -274,89 +327,141 @@ class PhysicalCollectionService:
             }
 
         # Per split statistics
-        splits = sorted(list(set(s["split"] for s in samples)))
+        splits = sorted(list(set(s.get("split", "incoming_pool") for s in samples)))
         per_split = {}
         for split in splits:
-            split_samples = [s for s in samples if s["split"] == split]
-            split_real = [s for s in split_samples if s["ground_truth"] == "real"]
-            split_synth = [s for s in split_samples if s["ground_truth"] == "synthetic"]
-            split_human_spks = set(s["human_identity"] for s in split_real if s["human_identity"])
+            split_samples = [s for s in samples if s.get("split") == split]
+            split_real = [s for s in split_samples if s.get("ground_truth") == "real"]
+            split_synth = [s for s in split_samples if s.get("ground_truth") == "synthetic"]
+            split_human_spks = set(s.get("human_identity") for s in split_real if s.get("human_identity"))
             per_split[split] = {
                 "total": len(split_samples),
                 "real_count": len(split_real),
                 "synthetic_count": len(split_synth),
                 "human_speaker_count": len(split_human_spks),
-                "human_speakers": list(split_human_spks),
+                "human_speakers": sorted(list(split_human_spks)),
                 "device_distribution": {
-                    d: len([s for s in split_samples if s["capture_device_category"] == d])
-                    for d in set(s["capture_device_category"] for s in split_samples)
+                    d: len([s for s in split_samples if s.get("capture_device_category") == d])
+                    for d in set(s.get("capture_device_category", "unknown") for s in split_samples)
                 },
             }
+
+        # Detailed distributions
+        generator_dist: Dict[str, int] = {}
+        playback_device_dist: Dict[str, int] = {}
+        distance_dist: Dict[str, int] = {}
+        environment_dist: Dict[str, int] = {}
+
+        for s in samples:
+            gen = s.get("generator_name")
+            if gen:
+                generator_dist[gen] = generator_dist.get(gen, 0) + 1
+            pb = s.get("playback_device")
+            if pb:
+                playback_device_dist[pb] = playback_device_dist.get(pb, 0) + 1
+            dist = s.get("distance_category")
+            if dist:
+                distance_dist[dist] = distance_dist.get(dist, 0) + 1
+            env = s.get("room_environment")
+            if env:
+                environment_dist[env] = environment_dist.get(env, 0) + 1
 
         # Confound and Imbalance Flags
         imbalance_flags = []
         confound_flags = []
         leakage_flags = []
 
-        if human_spk_count < 8:
+        if human_spk_count < 15:
             imbalance_flags.append(
-                f"INSUFFICIENT_HUMAN_SPEAKERS: Currently only {human_spk_count} human speakers registered (minimum required is 8-10+)."
+                f"INSUFFICIENT_HUMAN_SPEAKERS: Currently {human_spk_count}/15 target human speakers registered."
             )
 
-        for spk, data in per_human_speaker.items():
-            if data["percentage_of_real_class"] > 30.0:
-                imbalance_flags.append(
-                    f"DOMINANT_SPEAKER_CONFOUND: Speaker {spk} represents {data['percentage_of_real_class']}% of all real samples (>30% threshold)."
-                )
+        if len(real_samples) < 150:
+            imbalance_flags.append(
+                f"INSUFFICIENT_GENUINE_SAMPLES: Currently {len(real_samples)}/150 target genuine microphone samples collected."
+            )
+
+        if physical_replay_count < 150:
+            imbalance_flags.append(
+                f"INSUFFICIENT_PHYSICAL_REPLAY_SAMPLES: Currently {physical_replay_count}/150 target physical replay samples collected."
+            )
+
+        if len(real_samples) >= 10:
+            for spk, data in per_human_speaker.items():
+                if data["percentage_of_real_class"] > 25.0:
+                    imbalance_flags.append(
+                        f"DOMINANT_SPEAKER_CONFOUND: Speaker {spk} represents {data['percentage_of_real_class']}% of all real samples (>25% threshold)."
+                    )
 
         for dev, counts in per_device_category.items():
             if counts["real_count"] > 0 and counts["synthetic_count"] == 0:
                 confound_flags.append(
-                    f"DEVICE_CLASS_ASYMMETRY: Device '{dev}' appears only in genuine real speech (0 synthetic samples)."
+                    f"DEVICE_CLASS_ASYMMETRY: Device category '{dev}' has {counts['real_count']} real samples but 0 synthetic samples."
                 )
             elif counts["synthetic_count"] > 0 and counts["real_count"] == 0:
                 confound_flags.append(
-                    f"DEVICE_CLASS_ASYMMETRY: Device '{dev}' appears only in synthetic speech (0 genuine real samples)."
+                    f"DEVICE_CLASS_ASYMMETRY: Device category '{dev}' has {counts['synthetic_count']} synthetic samples but 0 real samples."
                 )
 
-        # Check speaker leakage across declared splits (excluding incoming_pool)
+        # Check speaker & source leakage across declared active splits
         active_splits = [s for s in splits if s != "incoming_pool"]
         for i in range(len(active_splits)):
             for j in range(i + 1, len(active_splits)):
                 s1, s2 = active_splits[i], active_splits[j]
-                spks1 = set(s["human_identity"] for s in samples if s["split"] == s1 and s["human_identity"])
-                spks2 = set(s["human_identity"] for s in samples if s["split"] == s2 and s["human_identity"])
-                overlap = spks1 & spks2
-                if overlap:
-                    leakage_flags.append(f"SPEAKER_LEAKAGE: Human speakers {overlap} shared between '{s1}' and '{s2}'.")
+                spks1 = set(s.get("human_identity") for s in samples if s.get("split") == s1 and s.get("human_identity"))
+                spks2 = set(s.get("human_identity") for s in samples if s.get("split") == s2 and s.get("human_identity"))
+                overlap_spks = spks1 & spks2
+                if overlap_spks:
+                    leakage_flags.append(f"SPEAKER_LEAKAGE: Human speakers {sorted(list(overlap_spks))} shared between '{s1}' and '{s2}'.")
+
+                src1 = set(s.get("parent_source_id") for s in samples if s.get("split") == s1 and s.get("parent_source_id"))
+                src2 = set(s.get("parent_source_id") for s in samples if s.get("split") == s2 and s.get("parent_source_id"))
+                overlap_src = src1 & src2
+                if overlap_src:
+                    leakage_flags.append(f"SOURCE_LEAKAGE: Parent source IDs {sorted(list(overlap_src))} shared between '{s1}' and '{s2}'.")
 
         ready = (
-            human_spk_count >= 8
-            and len(imbalance_flags) == 0
+            human_spk_count >= 15
+            and len(real_samples) >= 150
+            and physical_replay_count >= 150
             and len(confound_flags) == 0
             and len(leakage_flags) == 0
         )
 
         return {
             "total_samples": len(samples),
+            "target_total": 300,
             "human_speaker_count": human_spk_count,
+            "target_speakers": 15,
             "real_sample_count": len(real_samples),
+            "target_genuine": 150,
             "synthetic_sample_count": len(synth_samples),
+            "physical_replay_count": physical_replay_count,
+            "target_replay": 150,
             "per_human_speaker": per_human_speaker,
             "per_device_category": per_device_category,
             "per_split": per_split,
+            "generator_distribution": generator_dist,
+            "playback_device_distribution": playback_device_dist,
+            "distance_distribution": distance_dist,
+            "environment_distribution": environment_dist,
             "imbalance_flags": imbalance_flags,
             "confound_flags": confound_flags,
             "leakage_flags": leakage_flags,
             "ready_for_stage_2_evaluation": ready,
+            "statistical_sufficiency_note": (
+                "Collection target: 150 genuine + 150 physical replay samples across 15+ speakers. "
+                "Meeting target progress does NOT imply statistical sufficiency or production readiness; "
+                "re-evaluation on held-out test splits is mandatory before any adaptation decisions."
+            ),
         }
 
     def propose_split_assignment(self) -> Dict[str, Any]:
         """Computes a proposed split assignment that guarantees strict speaker disjointness and device balancing."""
         manifest = self.load_manifest()
         samples = manifest["samples"]
-        real_samples = [s for s in samples if s["ground_truth"] == "real"]
-        human_spks = sorted(list(set(s["human_identity"] for s in real_samples if s["human_identity"])))
+        real_samples = [s for s in samples if s.get("ground_truth") == "real"]
+        human_spks = sorted(list(set(s["human_identity"] for s in real_samples if s.get("human_identity"))))
 
         if len(human_spks) < 3:
             return {
@@ -383,4 +488,193 @@ class PhysicalCollectionService:
                 "dev_test_speakers": test_spks,
             },
             "disjointness_verified": len(set(train_spks) & set(val_spks)) == 0 and len(set(train_spks) & set(test_spks)) == 0,
+        }
+
+    def export_splits(self, export_dir: Optional[Path] = None) -> Dict[str, Any]:
+        """
+        Exports collected pool samples into partitioned splits (train, validation, test)
+        guaranteeing strict human speaker disjointness and parent source disjointness.
+        Writes:
+        - manifest.json
+        - train_manifest.json
+        - validation_manifest.json
+        - test_manifest.json
+        - manifests/physical_domain_manifest.json
+        And populates split directories with audio files so standard DatasetValidator can validate the dataset.
+        """
+        target_dir = Path(export_dir) if export_dir else (ROOT_DIR / "ml_data" / "physical_domain")
+        manifest = self.load_manifest()
+        samples = manifest["samples"]
+
+        if not samples:
+            raise ValueError("Cannot export splits: physical domain pool contains 0 samples.")
+
+        real_samples = [s for s in samples if s.get("ground_truth") == "real"]
+        synth_samples = [s for s in samples if s.get("ground_truth") == "synthetic"]
+
+        human_spks = sorted(list(set(s["human_identity"] for s in real_samples if s.get("human_identity"))))
+
+        # Disjoint human speaker assignment
+        train_spks: set = set()
+        val_spks: set = set()
+        test_spks: set = set()
+
+        if len(human_spks) >= 3:
+            n = len(human_spks)
+            n_train = max(1, int(n * 0.60))
+            n_val = max(1, int(n * 0.20))
+            train_spks = set(human_spks[:n_train])
+            val_spks = set(human_spks[n_train : n_train + n_val])
+            test_spks = set(human_spks[n_train + n_val :])
+        elif len(human_spks) == 2:
+            train_spks = {human_spks[0]}
+            test_spks = {human_spks[1]}
+        elif len(human_spks) == 1:
+            test_spks = {human_spks[0]}
+
+        # Disjoint synthetic parent source assignment
+        synth_parent_sources = sorted(list(set(
+            s.get("parent_source_id") or s.get("source_id") or s["sample_id"]
+            for s in synth_samples
+        )))
+        train_synth_sources: set = set()
+        val_synth_sources: set = set()
+        test_synth_sources: set = set()
+
+        if len(synth_parent_sources) >= 3:
+            n = len(synth_parent_sources)
+            n_train = max(1, int(n * 0.60))
+            n_val = max(1, int(n * 0.20))
+            train_synth_sources = set(synth_parent_sources[:n_train])
+            val_synth_sources = set(synth_parent_sources[n_train : n_train + n_val])
+            test_synth_sources = set(synth_parent_sources[n_train + n_val :])
+        elif len(synth_parent_sources) == 2:
+            train_synth_sources = {synth_parent_sources[0]}
+            test_synth_sources = {synth_parent_sources[1]}
+        elif len(synth_parent_sources) == 1:
+            test_synth_sources = {synth_parent_sources[0]}
+
+        # Assign split to each sample
+        split_records: Dict[str, List[Dict[str, Any]]] = {
+            "train": [],
+            "validation": [],
+            "test": [],
+        }
+
+        for s in real_samples:
+            spk = s.get("human_identity")
+            if spk in train_spks:
+                target_split = "train"
+            elif spk in val_spks:
+                target_split = "validation"
+            else:
+                target_split = "test"
+            s_copy = dict(s)
+            s_copy["split"] = target_split
+            split_records[target_split].append(s_copy)
+
+        for s in synth_samples:
+            parent = s.get("parent_source_id") or s.get("source_id") or s["sample_id"]
+            if parent in train_synth_sources:
+                target_split = "train"
+            elif parent in val_synth_sources:
+                target_split = "validation"
+            else:
+                target_split = "test"
+            s_copy = dict(s)
+            s_copy["split"] = target_split
+            split_records[target_split].append(s_copy)
+
+        # Prepare directory structure
+        for split in ["train", "validation", "test"]:
+            (target_dir / split / "real").mkdir(parents=True, exist_ok=True)
+            (target_dir / split / "synthetic").mkdir(parents=True, exist_ok=True)
+        (target_dir / "manifests").mkdir(parents=True, exist_ok=True)
+
+        # Copy audio files into structure
+        exported_samples = []
+        for split_name, records in split_records.items():
+            for rec in records:
+                src_path = self.pool_dir / rec["relative_path"]
+                gt = rec["ground_truth"]
+                dst_filename = Path(rec["relative_path"]).name
+                dst_path = target_dir / split_name / gt / dst_filename
+                if src_path.exists():
+                    shutil.copy2(src_path, dst_path)
+                rec_exported = dict(rec)
+                rec_exported["relative_path"] = f"{split_name}/{gt}/{dst_filename}"
+                exported_samples.append(rec_exported)
+
+        # Write individual manifests
+        all_manifest_data = {
+            "dataset_name": "SIH26104_PHYSICAL_DOMAIN",
+            "version": "1.0",
+            "description": "Multi-speaker, multi-device physical acoustic speech dataset with strictly disjoint human speakers.",
+            "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "total_samples": len(exported_samples),
+            "speakers_partitioning": {
+                "train": {
+                    "total": len(split_records["train"]),
+                    "real_samples": len([r for r in split_records["train"] if r["ground_truth"] == "real"]),
+                    "synthetic_samples": len([r for r in split_records["train"] if r["ground_truth"] == "synthetic"]),
+                    "speaker_count": len(train_spks),
+                    "speakers": sorted(list(train_spks)),
+                },
+                "validation": {
+                    "total": len(split_records["validation"]),
+                    "real_samples": len([r for r in split_records["validation"] if r["ground_truth"] == "real"]),
+                    "synthetic_samples": len([r for r in split_records["validation"] if r["ground_truth"] == "synthetic"]),
+                    "speaker_count": len(val_spks),
+                    "speakers": sorted(list(val_spks)),
+                },
+                "test": {
+                    "total": len(split_records["test"]),
+                    "real_samples": len([r for r in split_records["test"] if r["ground_truth"] == "real"]),
+                    "synthetic_samples": len([r for r in split_records["test"] if r["ground_truth"] == "synthetic"]),
+                    "speaker_count": len(test_spks),
+                    "speakers": sorted(list(test_spks)),
+                },
+            },
+            "samples": exported_samples,
+        }
+
+        manifest_paths = {
+            "manifest": str(target_dir / "manifest.json"),
+            "train_manifest": str(target_dir / "train_manifest.json"),
+            "validation_manifest": str(target_dir / "validation_manifest.json"),
+            "test_manifest": str(target_dir / "test_manifest.json"),
+            "physical_domain_manifest": str(target_dir / "manifests" / "physical_domain_manifest.json"),
+        }
+
+        with open(target_dir / "manifest.json", "w", encoding="utf-8") as f:
+            json.dump(all_manifest_data, f, indent=2)
+
+        with open(target_dir / "manifests" / "physical_domain_manifest.json", "w", encoding="utf-8") as f:
+            json.dump(all_manifest_data, f, indent=2)
+
+        for s_name in ["train", "validation", "test"]:
+            s_data = dict(all_manifest_data)
+            s_data["samples"] = [s for s in exported_samples if s["split"] == s_name]
+            s_data["total_samples"] = len(s_data["samples"])
+            with open(target_dir / f"{s_name}_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(s_data, f, indent=2)
+
+        # Disjointness check
+        disjoint = (
+            len(train_spks & val_spks) == 0
+            and len(train_spks & test_spks) == 0
+            and len(val_spks & test_spks) == 0
+        )
+
+        return {
+            "status": "success",
+            "exported_at": all_manifest_data["exported_at"],
+            "total_exported": len(exported_samples),
+            "train_count": len(split_records["train"]),
+            "validation_count": len(split_records["validation"]),
+            "test_count": len(split_records["test"]),
+            "export_directory": str(target_dir),
+            "manifest_paths": manifest_paths,
+            "human_speakers_disjoint": disjoint,
+            "message": f"Successfully exported {len(exported_samples)} samples to {target_dir} with strict speaker disjointness.",
         }

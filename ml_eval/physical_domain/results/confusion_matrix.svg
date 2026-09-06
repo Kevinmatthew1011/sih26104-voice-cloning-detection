@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="100%" height="100%">
+  <rect width="720" height="400" fill="#0f172a" rx="10"/>
+  <text x="360" y="34" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="17" font-weight="700">Confusion Matrices: Benchmark vs Physical Challenge</text>
+
+  <!-- Matrix A: ASVspoof Clean Benchmark -->
+  <g transform="translate(60, 70)">
+    <text x="120" y="0" text-anchor="middle" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="14" font-weight="700">Clean ASVspoof 2019 (N=71,237)</text>
+    <text x="60" y="24" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">Pred Real</text>
+    <text x="180" y="24" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">Pred Synth</text>
+
+    <!-- TN -->
+    <rect x="0" y="32" width="120" height="100" fill="#065f46" rx="4" stroke="#047857"/>
+    <text x="60" y="76" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="16" font-weight="700">7,339</text>
+    <text x="60" y="98" text-anchor="middle" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">TN (99.78%)</text>
+
+    <!-- FP -->
+    <rect x="124" y="32" width="120" height="100" fill="#1e293b" rx="4" stroke="#334155"/>
+    <text x="184" y="76" text-anchor="middle" fill="#fca5a5" font-family="system-ui, sans-serif" font-size="16" font-weight="700">16</text>
+    <text x="184" y="98" text-anchor="middle" fill="#f87171" font-family="system-ui, sans-serif" font-size="11">FP (0.22%)</text>
+
+    <!-- FN -->
+    <rect x="0" y="136" width="120" height="100" fill="#1e293b" rx="4" stroke="#334155"/>
+    <text x="60" y="180" text-anchor="middle" fill="#fed7aa" font-family="system-ui, sans-serif" font-size="16" font-weight="700">3,421</text>
+    <text x="60" y="202" text-anchor="middle" fill="#fb923c" font-family="system-ui, sans-serif" font-size="11">FN (5.36%)</text>
+
+    <!-- TP -->
+    <rect x="124" y="136" width="120" height="100" fill="#065f46" rx="4" stroke="#047857"/>
+    <text x="184" y="180" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="16" font-weight="700">60,461</text>
+    <text x="184" y="202" text-anchor="middle" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">TP (94.64%)</text>
+
+    <text x="-15" y="86" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11" transform="rotate(-90 -15 86)">Real</text>
+    <text x="-15" y="190" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11" transform="rotate(-90 -15 190)">Synth</text>
+  </g>
+
+  <!-- Matrix B: Physical Challenge Set -->
+  <g transform="translate(420, 70)">
+    <text x="120" y="0" text-anchor="middle" fill="#f43f5e" font-family="system-ui, sans-serif" font-size="14" font-weight="700">Physical Microphone Challenge (N=25)</text>
+    <text x="60" y="24" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">Pred Real</text>
+    <text x="180" y="24" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">Pred Synth</text>
+
+    <!-- TN -->
+    <rect x="0" y="32" width="120" height="100" fill="#1e293b" rx="4" stroke="#334155"/>
+    <text x="60" y="76" text-anchor="middle" fill="#64748b" font-family="system-ui, sans-serif" font-size="16" font-weight="700">0</text>
+    <text x="60" y="98" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">TN (0.00%)</text>
+
+    <!-- FP -->
+    <rect x="124" y="32" width="120" height="100" fill="#881337" rx="4" stroke="#e11d48"/>
+    <text x="184" y="76" text-anchor="middle" fill="#fecdd3" font-family="system-ui, sans-serif" font-size="16" font-weight="700">14</text>
+    <text x="184" y="98" text-anchor="middle" fill="#fda4af" font-family="system-ui, sans-serif" font-size="11">FP (100.0%)</text>
+
+    <!-- FN -->
+    <rect x="0" y="136" width="120" height="100" fill="#1e293b" rx="4" stroke="#334155"/>
+    <text x="60" y="180" text-anchor="middle" fill="#64748b" font-family="system-ui, sans-serif" font-size="16" font-weight="700">0</text>
+    <text x="60" y="202" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">FN (0.00%)</text>
+
+    <!-- TP -->
+    <rect x="124" y="136" width="120" height="100" fill="#065f46" rx="4" stroke="#047857"/>
+    <text x="184" y="180" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="16" font-weight="700">11</text>
+    <text x="184" y="202" text-anchor="middle" fill="#a7f3d0" font-family="system-ui, sans-serif" font-size="11">TP (100.0%)</text>
+
+    <text x="-15" y="86" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11" transform="rotate(-90 -15 86)">Real</text>
+    <text x="-15" y="190" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11" transform="rotate(-90 -15 190)">Synth</text>
+  </g>
+
+  <!-- Explanation note -->
+  <text x="360" y="365" text-anchor="middle" fill="#fca5a5" font-family="system-ui, sans-serif" font-size="12" font-weight="500">
+    Warning: Physical Microphone speech triggers a 100% False Positive Rate under untouched AASIST.
+  </text>
+</svg>

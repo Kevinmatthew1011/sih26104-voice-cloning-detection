@@ -256,16 +256,26 @@ export interface PerSplitStats {
 
 export interface BalanceDashboardResponse {
   total_samples: number;
+  target_total?: number;
   human_speaker_count: number;
+  target_speakers?: number;
   real_sample_count: number;
+  target_genuine?: number;
   synthetic_sample_count: number;
+  physical_replay_count?: number;
+  target_replay?: number;
   per_human_speaker: Record<string, PerHumanSpeakerStats>;
   per_device_category: Record<string, PerDeviceCategoryStats>;
   per_split: Record<string, PerSplitStats>;
+  generator_distribution?: Record<string, number>;
+  playback_device_distribution?: Record<string, number>;
+  distance_distribution?: Record<string, number>;
+  environment_distribution?: Record<string, number>;
   imbalance_flags: string[];
   confound_flags: string[];
   leakage_flags: string[];
   ready_for_stage_2_evaluation: boolean;
+  statistical_sufficiency_note?: string;
 }
 
 export interface SplitProposalResponse {
@@ -273,5 +283,18 @@ export interface SplitProposalResponse {
   message: string;
   speaker_assignment?: Record<string, string[]>;
   disjointness_verified?: boolean;
+}
+
+export interface ExportSplitsResponse {
+  status: string;
+  exported_at: string;
+  total_exported: number;
+  train_count: number;
+  validation_count: number;
+  test_count: number;
+  export_directory: string;
+  manifest_paths: Record<string, string>;
+  human_speakers_disjoint: boolean;
+  message: string;
 }
 

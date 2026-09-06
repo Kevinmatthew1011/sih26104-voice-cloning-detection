@@ -1,0 +1,92 @@
+{
+  "evaluation_timestamp": "2026-09-06T07:45:59Z",
+  "phase": "Phase 4: Real-World Acoustic Validation",
+  "decision_gate": "D. INSUFFICIENT DATA",
+  "gate_justification": "Physical microphone dataset contains 25 verified records (14 real, 11 direct synthetic). Zero physical re-captured spoof samples exist in the current corpus. Although genuine microphone speech experiences 100% false block rate under frozen AASIST, the current dataset is too small and lacks acoustic replay attacks to safely train or validate model adaptation without catastrophic overfitting or leakage.",
+  "benchmarks": {
+    "clean_asvspoof_2019_eval": {
+      "sample_count": 71237,
+      "bonafide_count": 7355,
+      "spoof_count": 63882,
+      "accuracy": 0.951753,
+      "precision": 0.999735,
+      "recall": 0.946448,
+      "f1_score": 0.972362,
+      "roc_auc": 0.999282,
+      "eer": 0.008047,
+      "eer_threshold": -4.531697,
+      "confusion_matrix": {
+        "tn": 7339,
+        "fp": 16,
+        "fn": 3421,
+        "tp": 60461
+      },
+      "bonafide_fpr": 0.002175,
+      "synthetic_fnr": 0.053552
+    },
+    "physical_microphone_challenge_set": {
+      "evaluation_threshold_0_50": {
+        "sample_count": 25,
+        "class_balance": {
+          "real": 14,
+          "synthetic": 11
+        },
+        "accuracy": 0.44,
+        "precision": 0.44,
+        "recall": 1.0,
+        "f1_score": 0.611111,
+        "roc_auc": 0.444805,
+        "eer": 0.555195,
+        "eer_threshold": 1.0,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 14,
+          "fn": 0,
+          "tp": 11
+        },
+        "false_positive_rate": 1.0,
+        "false_negative_rate": 0.0,
+        "genuine_false_positive_rate": 1.0,
+        "synthetic_miss_rate": 0.0
+      },
+      "evaluation_threshold_0_70": {
+        "sample_count": 25,
+        "class_balance": {
+          "real": 14,
+          "synthetic": 11
+        },
+        "accuracy": 0.44,
+        "precision": 0.44,
+        "recall": 1.0,
+        "f1_score": 0.611111,
+        "roc_auc": 0.444805,
+        "eer": 0.555195,
+        "eer_threshold": 1.0,
+        "confusion_matrix": {
+          "tn": 0,
+          "fp": 14,
+          "fn": 0,
+          "tp": 11
+        },
+        "false_positive_rate": 1.0,
+        "false_negative_rate": 0.0,
+        "genuine_false_positive_rate": 1.0,
+        "synthetic_miss_rate": 0.0
+      },
+      "subsets": {
+        "laptop_array_genuine_count": 13,
+        "smartphone_genuine_count": 1,
+        "direct_synthetic_clone_count": 11,
+        "physical_speaker_replay_count": 0
+      }
+    }
+  },
+  "domain_shift_findings": {
+    "1_distinguish_real_vs_synthetic_after_replay": "Untested empirically because 0 physical speaker->microphone replay samples exist. On direct physical microphone recordings, AASIST fails to distinguish genuine human speech from synthetic.",
+    "2_genuine_microphone_falsely_classified": "Yes. 14 of 14 genuine microphone captures produced P_synth >= 0.999 (100% False Positive Rate), triggering false HIGH/BLOCK actions under uncalibrated thresholds.",
+    "3_class_suffering_most": "Genuine human speech suffers catastrophic degradation (FPR escalates from 0.22% on clean ASVspoof to 100.0% on microphone audio). Synthetic recall remains 100.0%.",
+    "4_production_thresholds_appropriate": "No single fixed probability threshold can resolve the separation because both genuine microphone speech and synthetic audio cluster at P_synth >= 0.999.",
+    "5_calibration_alone_helpful": "No. Stage 4 linear probing proved that 160-D SincNet embeddings already collapse into the spoof quadrant (CM ~ -15 to -22). Monotonic scaling or threshold shifting cannot separate overlapping representations.",
+    "6_fine_tuning_justified": "Architectural adaptation of SincNet filterbanks is theoretically justified, but execution is blocked until a sufficiently large, balanced physical dataset (including acoustic speaker-to-microphone replays) is collected."
+  }
+}

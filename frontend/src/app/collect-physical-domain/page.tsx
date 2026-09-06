@@ -14,19 +14,39 @@ import {
   ChevronRight,
   ChevronLeft,
   Info,
+  RotateCcw,
+  UploadCloud,
+  Download,
+  Target,
+  Users,
+  HardDrive,
+  Cpu,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { PromptItem, BalanceDashboardResponse, IngestionResponse } from '@/lib/types';
+import {
+  PromptItem,
+  BalanceDashboardResponse,
+  IngestionResponse,
+  ExportSplitsResponse,
+} from '@/lib/types';
 
 type DeviceCategory = 'laptop' | 'mobile' | 'external_microphone' | 'other';
+type DistanceCategory = 'close_10cm' | 'medium_30cm' | 'far_1m';
+type PlaybackDeviceCategory =
+  | 'smartphone_loudspeaker'
+  | 'laptop_speakers'
+  | 'bluetooth_speaker'
+  | 'desktop_monitors'
+  | 'other_transducer';
 
 export default function PhysicalDomainCollectionPage() {
   const [activeTab, setActiveTab] = useState<'genuine_capture' | 'synthetic_recapture' | 'balance_dashboard'>('genuine_capture');
 
   // Metadata Form State
-  const [speakerId, setSpeakerId] = useState('HUMAN_SPK_05');
+  const [speakerId, setSpeakerId] = useState('HUMAN_SPK_01');
   const [deviceCategory, setDeviceCategory] = useState<DeviceCategory>('laptop');
   const [deviceName, setDeviceName] = useState('');
+  const [distanceCategory, setDistanceCategory] = useState<DistanceCategory>('medium_30cm');
   const [roomEnv, setRoomEnv] = useState('quiet_office');
   const [sessionId, setSessionId] = useState(() => {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -40,23 +60,31 @@ export default function PhysicalDomainCollectionPage() {
   const [attackId, setAttackId] = useState('zero_shot_clone');
   const [parentSourceId, setParentSourceId] = useState('');
   const [playbackDevice, setPlaybackDevice] = useState('Pixel 8 Smartphone Loudspeaker');
+  const [playbackDeviceCategory, setPlaybackDeviceCategory] = useState<PlaybackDeviceCategory>('smartphone_loudspeaker');
 
   // Prompts State
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [currentPromptIdx, setCurrentPromptIdx] = useState(0);
 
-  // Recording State
+  // Recording & Preview State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioConstraints, setAudioConstraints] = useState<MediaTrackConstraints>({});
   const [appliedSettings, setAppliedSettings] = useState<MediaTrackSettings>({});
-  const [mimeType, setMimeType] = useState<string>('');
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewMime, setPreviewMime] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Status & Telemetry
   const [lastUploadedSample, setLastUploadedSample] = useState<IngestionResponse | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  // Dashboard State
+  // Dashboard & Export State
   const [dashboard, setDashboard] = useState<BalanceDashboardResponse | null>(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<ExportSplitsResponse | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -77,7 +105,7 @@ export default function PhysicalDomainCollectionPage() {
   useEffect(() => {
     let isCancelled = false;
 
-    // Fetch standardized prompt set via API client
+    // Fetch standardized prompt set
     api.getCollectionPrompts()
       .then((data) => {
         if (!isCancelled && data && data.prompts) {
@@ -88,7 +116,7 @@ export default function PhysicalDomainCollectionPage() {
         console.error('Failed to load prompts:', err);
       });
 
-    // Fetch initial balance dashboard without synchronous setState in effect body
+    // Fetch initial balance dashboard
     api.getCollectionBalanceDashboard()
       .then((data) => {
         if (!isCancelled) {
@@ -101,14 +129,26 @@ export default function PhysicalDomainCollectionPage() {
 
     return () => {
       isCancelled = true;
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     };
-  }, []);
+  }, [previewUrl]);
+
+  const handleRetake = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewBlob(null);
+    setPreviewUrl(null);
+    setPreviewMime('');
+    setStatusMessage(null);
+  };
 
   const startRecording = async () => {
-    setStatusMessage(null);
+    handleRetake();
     setAudioConstraints({});
     setAppliedSettings({});
-    setMimeType('');
     audioChunksRef.current = [];
 
     const audioConstraintsConfig: MediaTrackConstraints = {
@@ -146,7 +186,6 @@ export default function PhysicalDomainCollectionPage() {
           break;
         }
       }
-      setMimeType(selectedMime);
 
       const recorder = selectedMime ? new MediaRecorder(stream, { mimeType: selectedMime }) : new MediaRecorder(stream);
       mediaRecorderRef.current = recorder;
@@ -157,17 +196,24 @@ export default function PhysicalDomainCollectionPage() {
         }
       };
 
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
         const actualMime = recorder.mimeType || selectedMime || 'audio/webm';
         const blob = new Blob(audioChunksRef.current, { type: actualMime });
         stream.getTracks().forEach((track) => track.stop());
 
         if (blob.size < 100) {
-          setStatusMessage({ type: 'error', text: 'Recording too short or empty.' });
+          setStatusMessage({ type: 'error', text: 'Recording too short or empty. Please re-record.' });
           return;
         }
 
-        await uploadRecording(blob, actualMime);
+        const url = URL.createObjectURL(blob);
+        setPreviewBlob(blob);
+        setPreviewUrl(url);
+        setPreviewMime(actualMime);
+        setStatusMessage({
+          type: 'info',
+          text: 'Utterance captured. Listen to verify audio quality before submitting or retaking.',
+        });
       };
 
       recorder.start(250);
@@ -191,48 +237,102 @@ export default function PhysicalDomainCollectionPage() {
     }
   };
 
-  const uploadRecording = async (blob: Blob, actualMime: string) => {
+  const handleSubmitRecording = async () => {
+    if (!previewBlob) return;
+
     const isSynthetic = activeTab === 'synthetic_recapture';
     const groundTruth = isSynthetic ? 'synthetic' : 'real';
-    const ext = actualMime.includes('ogg') ? '.ogg' : actualMime.includes('mp4') ? '.m4a' : '.webm';
-    const filename = `${speakerId}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}${ext}`;
+
+    if (!isSynthetic && !speakerId.trim()) {
+      setStatusMessage({ type: 'error', text: 'Human Speaker ID is mandatory for genuine microphone speech.' });
+      return;
+    }
+
+    if (isSynthetic) {
+      if (!playbackDevice.trim()) {
+        setStatusMessage({ type: 'error', text: 'Playback device is required for physical replay recordings.' });
+        return;
+      }
+      if (!generatorName.trim()) {
+        setStatusMessage({ type: 'error', text: 'Generator model name is required for physical replay recordings.' });
+        return;
+      }
+    }
+
+    const ext = previewMime.includes('ogg') ? '.ogg' : previewMime.includes('mp4') ? '.m4a' : '.webm';
+    const filename = `${speakerId || 'UNKNOWN'}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}${ext}`;
 
     const formData = new FormData();
-    formData.append('file', blob, filename);
+    formData.append('file', previewBlob, filename);
     formData.append('ground_truth', groundTruth);
-    formData.append('human_identity', isSynthetic ? '' : speakerId);
-    formData.append('source_speaker_identity', isSynthetic ? speakerId : '');
+    formData.append('human_identity', isSynthetic ? '' : speakerId.trim());
+    formData.append('source_speaker_identity', isSynthetic ? speakerId.trim() : '');
     formData.append('source_id', filename);
     formData.append('capture_type', isSynthetic ? 'physical_recapture' : 'physical_browser_microphone');
     formData.append('capture_device_category', deviceCategory);
-    formData.append('capture_device_name', deviceName || 'Generic Audio Device');
+    formData.append('capture_device_name', deviceName || 'Standard Microphone Array');
+    formData.append('distance_category', distanceCategory);
     formData.append('browser', navigator.userAgent.includes('Chrome') ? 'Google Chrome' : navigator.userAgent.includes('Firefox') ? 'Mozilla Firefox' : 'Other Browser');
     formData.append('browser_version', navigator.userAgent);
-    formData.append('os_name', navigator.platform || 'Unknown OS');
+    formData.append('os_name', navigator.platform || 'Linux');
     formData.append('requested_constraints_json', JSON.stringify(audioConstraints));
     formData.append('applied_settings_json', JSON.stringify(appliedSettings));
-    formData.append('media_recorder_mime_type', actualMime);
+    formData.append('media_recorder_mime_type', previewMime);
     formData.append('room_environment', roomEnv);
     formData.append('capture_session_id', sessionId);
     formData.append('prompt_id', prompts[currentPromptIdx]?.prompt_id || 'FREEFORM');
 
     if (isSynthetic) {
-      formData.append('generator_name', generatorName);
-      formData.append('generator_version', generatorVersion);
-      formData.append('attack_id', attackId);
-      formData.append('playback_device', playbackDevice);
-      formData.append('parent_source_id', parentSourceId || 'SYNTH_SOURCE_UNKNOWN');
+      formData.append('generator_name', generatorName.trim());
+      formData.append('generator_version', generatorVersion.trim());
+      formData.append('attack_id', attackId.trim());
+      formData.append('playback_device', playbackDevice.trim());
+      formData.append('playback_device_category', playbackDeviceCategory);
+      formData.append('parent_source_id', parentSourceId.trim() || 'SYNTH_PARENT_MANUAL');
     }
 
+    setIsSubmitting(true);
     try {
-      setStatusMessage({ type: 'info', text: 'Uploading and analyzing acoustic audio quality...' });
+      setStatusMessage({ type: 'info', text: 'Analyzing audio quality & staging into pool...' });
       const data = await api.ingestPhysicalRecording(formData);
       setLastUploadedSample(data);
-      setStatusMessage({ type: 'success', text: `Sample ${data.sample_id} ingested successfully (${data.duration_seconds}s). Quality check passed.` });
+      setStatusMessage({
+        type: 'success',
+        text: `Sample ${data.sample_id} successfully staged (${data.duration_seconds}s). Advance to next prompt.`,
+      });
+
+      // Advance prompt automatically
+      if (prompts.length > 0) {
+        setCurrentPromptIdx((prev) => (prev + 1) % prompts.length);
+      }
+
+      // Clear preview
+      handleRetake();
       fetchDashboard();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      setStatusMessage({ type: 'error', text: `Upload failed: ${message}` });
+      setStatusMessage({ type: 'error', text: `Upload rejected: ${message}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExportSplits = async () => {
+    setIsExporting(true);
+    setExportResult(null);
+    try {
+      const result = await api.exportCollectionSplits();
+      setExportResult(result);
+      setStatusMessage({
+        type: 'success',
+        text: `Exported ${result.total_exported} samples to ${result.export_directory} with strict speaker disjointness.`,
+      });
+      fetchDashboard();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ type: 'error', text: `Split export failed: ${message}` });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -253,7 +353,7 @@ export default function PhysicalDomainCollectionPage() {
                 DEVELOPMENT TOOL
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                STAGE-2 DATA COLLECTION
+                PHASE 5 DATASET READINESS
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
@@ -261,7 +361,7 @@ export default function PhysicalDomainCollectionPage() {
               Physical-Domain Acoustic Data Collection
             </h1>
             <p className="text-sm text-slate-400 mt-1 max-w-2xl font-mono">
-              Standardized ingestion workflow for genuine microphone speech & channel-matched physical recaptures with complete acoustic provenance.
+              Target: N=300 balanced acoustic samples (150 Genuine + 150 Physical Replay across &ge;15 speakers) with strict provenance and speaker disjointness.
             </p>
           </div>
 
@@ -275,37 +375,107 @@ export default function PhysicalDomainCollectionPage() {
           </div>
         </div>
 
+        {/* Target Progress Bar Cards */}
+        {dashboard && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-emerald-400" /> Total Samples</span>
+                <span className="text-slate-200 font-bold">{dashboard.total_samples} / {dashboard.target_total || 300}</span>
+              </div>
+              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div
+                  className="bg-emerald-500 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((dashboard.total_samples / (dashboard.target_total || 300)) * 100))}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-mono text-slate-500">{Math.round((dashboard.total_samples / (dashboard.target_total || 300)) * 100)}% of collection target</p>
+            </div>
+
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5"><Mic className="w-3.5 h-3.5 text-emerald-400" /> Genuine Mic</span>
+                <span className="text-emerald-400 font-bold">{dashboard.real_sample_count} / {dashboard.target_genuine || 150}</span>
+              </div>
+              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div
+                  className="bg-emerald-400 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((dashboard.real_sample_count / (dashboard.target_genuine || 150)) * 100))}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-mono text-slate-500">{Math.round((dashboard.real_sample_count / (dashboard.target_genuine || 150)) * 100)}% of genuine target</p>
+            </div>
+
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5"><Volume2 className="w-3.5 h-3.5 text-indigo-400" /> Physical Replay</span>
+                <span className="text-indigo-400 font-bold">{dashboard.physical_replay_count || 0} / {dashboard.target_replay || 150}</span>
+              </div>
+              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div
+                  className="bg-indigo-400 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round(((dashboard.physical_replay_count || 0) / (dashboard.target_replay || 150)) * 100))}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-mono text-slate-500">{Math.round(((dashboard.physical_replay_count || 0) / (dashboard.target_replay || 150)) * 100)}% of replay target</p>
+            </div>
+
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="flex justify-between items-center text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-400" /> Human Speakers</span>
+                <span className="text-amber-400 font-bold">{dashboard.human_speaker_count} / {dashboard.target_speakers || 15}</span>
+              </div>
+              <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div
+                  className="bg-amber-400 h-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((dashboard.human_speaker_count / (dashboard.target_speakers || 15)) * 100))}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-mono text-slate-500">{Math.round((dashboard.human_speaker_count / (dashboard.target_speakers || 15)) * 100)}% of speaker quota</p>
+            </div>
+          </div>
+        )}
+
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b border-slate-800">
           <button
-            onClick={() => setActiveTab('genuine_capture')}
+            onClick={() => {
+              setActiveTab('genuine_capture');
+              handleRetake();
+            }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'genuine_capture'
                 ? 'bg-slate-900 border-slate-700 text-emerald-400 border-b-2 border-b-emerald-500'
                 : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Mic className="w-4 h-4" /> Genuine Microphone Speech
+            <Mic className="w-4 h-4" /> Mode A: Genuine Microphone Speech
           </button>
           <button
-            onClick={() => setActiveTab('synthetic_recapture')}
+            onClick={() => {
+              setActiveTab('synthetic_recapture');
+              handleRetake();
+            }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'synthetic_recapture'
                 ? 'bg-slate-900 border-slate-700 text-indigo-400 border-b-2 border-b-indigo-500'
                 : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Volume2 className="w-4 h-4" /> Synthetic Acoustic Recapture
+            <Volume2 className="w-4 h-4" /> Mode B: Synthetic Acoustic Replay
           </button>
           <button
-            onClick={() => setActiveTab('balance_dashboard')}
+            onClick={() => {
+              setActiveTab('balance_dashboard');
+              handleRetake();
+            }}
             className={`px-4 py-2.5 text-xs font-mono font-semibold rounded-t-xl transition-all flex items-center gap-2 border-t border-x ${
               activeTab === 'balance_dashboard'
                 ? 'bg-slate-900 border-slate-700 text-amber-400 border-b-2 border-b-amber-500'
                 : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Layers className="w-4 h-4" /> Balance Dashboard & Confound Flags
+            <Layers className="w-4 h-4" /> Balance Dashboard & Export Splits
           </button>
         </div>
 
@@ -331,45 +501,83 @@ export default function PhysicalDomainCollectionPage() {
           </div>
         )}
 
-        {/* Tab 1: Genuine Capture & Tab 2: Synthetic Recapture */}
+        {/* Mode A (Genuine) & Mode B (Synthetic Replay) Ingestion View */}
         {activeTab !== 'balance_dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column: Metadata Controls */}
             <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
               <h2 className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-emerald-400" /> Provenance & Session Metadata
+                <Sliders className="w-4 h-4 text-emerald-400" /> Acoustic Provenance
               </h2>
 
               <div className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-slate-400 font-mono mb-1">
-                    {activeTab === 'genuine_capture' ? 'Human Speaker ID (Pseudonymous)' : 'Source Speaker / Identity'}
-                  </label>
-                  <input
-                    type="text"
-                    value={speakerId}
-                    onChange={(e) => setSpeakerId(e.target.value)}
-                    placeholder="e.g. HUMAN_SPK_05"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
+                {activeTab === 'genuine_capture' ? (
+                  <div>
+                    <label className="block text-slate-400 font-mono mb-1">
+                      Human Speaker ID <span className="text-emerald-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={speakerId}
+                      onChange={(e) => setSpeakerId(e.target.value)}
+                      placeholder="e.g. HUMAN_SPK_01"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                    <p className="text-[10px] font-mono text-slate-500 mt-1">Pseudonymous identifier (&ge;15 unique speakers required).</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-slate-400 font-mono mb-1">Source Cloned Speaker / Voice</label>
+                    <input
+                      type="text"
+                      value={speakerId}
+                      onChange={(e) => setSpeakerId(e.target.value)}
+                      placeholder="e.g. CLONED_TARGET_01"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                )}
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Capture Device Category</label>
+                  <label className="block text-slate-400 font-mono mb-1">Microphone Device Category</label>
                   <select
                     value={deviceCategory}
                     onChange={(e) => setDeviceCategory(e.target.value as DeviceCategory)}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="laptop">Laptop (Integrated Array)</option>
-                    <option value="mobile">Mobile Smartphone (Primary MEMS)</option>
-                    <option value="external_microphone">External Condenser / USB Mic</option>
-                    <option value="other">Other Audio Transducer</option>
+                    <option value="laptop">Laptop Integrated Array</option>
+                    <option value="mobile">Smartphone Primary MEMS</option>
+                    <option value="external_microphone">External USB / Condenser</option>
+                    <option value="other">Other Microphone</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-mono mb-1">Room / Acoustic Environment</label>
+                  <label className="block text-slate-400 font-mono mb-1">Microphone Hardware Name</label>
+                  <input
+                    type="text"
+                    value={deviceName}
+                    onChange={(e) => setDeviceName(e.target.value)}
+                    placeholder="Auto-detected from browser"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-mono mb-1">Recording Distance</label>
+                  <select
+                    value={distanceCategory}
+                    onChange={(e) => setDistanceCategory(e.target.value as DistanceCategory)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="close_10cm">Close (~10 cm, mouth proximity)</option>
+                    <option value="medium_30cm">Medium (~30 cm, desk / handheld)</option>
+                    <option value="far_1m">Far-field (~1 meter)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-mono mb-1">Room Environment</label>
                   <select
                     value={roomEnv}
                     onChange={(e) => setRoomEnv(e.target.value)}
@@ -377,8 +585,8 @@ export default function PhysicalDomainCollectionPage() {
                   >
                     <option value="quiet_office">Quiet Office (Low Noise)</option>
                     <option value="living_room">Living Room (Moderate Reverberation)</option>
-                    <option value="meeting_room">Conference Room (Echoey / Hard Walls)</option>
-                    <option value="ambient_cafe">Noisy Room (Background Chatter/HVAC)</option>
+                    <option value="meeting_room">Conference Room (Echoey / Hard Surfaces)</option>
+                    <option value="ambient_cafe">Noisy Room (HVAC / Ambient Chatter)</option>
                   </select>
                 </div>
 
@@ -388,53 +596,81 @@ export default function PhysicalDomainCollectionPage() {
                     type="text"
                     value={sessionId}
                     onChange={(e) => setSessionId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                   />
                 </div>
 
+                {/* Synthetic Replay Controls (Mode B) */}
                 {activeTab === 'synthetic_recapture' && (
                   <div className="pt-3 border-t border-slate-800 space-y-3">
-                    <h3 className="text-xs font-mono font-bold text-indigo-400 uppercase">Recapture Playback Settings</h3>
+                    <h3 className="text-xs font-mono font-bold text-indigo-400 uppercase flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5" /> Replay Transducer & Generator
+                    </h3>
+
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Generator Model</label>
+                      <label className="block text-slate-400 font-mono mb-1">
+                        Playback Loudspeaker <span className="text-indigo-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={playbackDevice}
+                        onChange={(e) => setPlaybackDevice(e.target.value)}
+                        placeholder="e.g. Pixel 8 Phone Speaker, JBL Flip"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
+                      />
+                      <p className="text-[10px] font-mono text-slate-500 mt-1">Loudspeaker transducer that physically emits the synthetic audio.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-400 font-mono mb-1">Playback Transducer Category</label>
+                      <select
+                        value={playbackDeviceCategory}
+                        onChange={(e) => setPlaybackDeviceCategory(e.target.value as PlaybackDeviceCategory)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="smartphone_loudspeaker">Smartphone Loudspeaker (MEMS / Micro-driver)</option>
+                        <option value="laptop_speakers">Laptop Internal Speakers</option>
+                        <option value="bluetooth_speaker">Portable Bluetooth Speaker</option>
+                        <option value="desktop_monitors">Desktop Studio Monitors / PC Speakers</option>
+                        <option value="other_transducer">Other Transducer</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-400 font-mono mb-1">
+                        Generator Model <span className="text-indigo-400">*</span>
+                      </label>
                       <input
                         type="text"
                         value={generatorName}
                         onChange={(e) => setGeneratorName(e.target.value)}
-                        placeholder="e.g. ElevenLabs, Tacotron"
+                        placeholder="e.g. ElevenLabs, Tacotron, Bark"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                       />
                     </div>
+
                     <div>
                       <label className="block text-slate-400 font-mono mb-1">Generator Version</label>
                       <input
                         type="text"
                         value={generatorVersion}
                         onChange={(e) => setGeneratorVersion(e.target.value)}
-                        placeholder="e.g. v2"
+                        placeholder="e.g. v2, turbo"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-slate-400 font-mono mb-1">Attack ID</label>
+                      <label className="block text-slate-400 font-mono mb-1">Attack Algorithm ID</label>
                       <input
                         type="text"
                         value={attackId}
                         onChange={(e) => setAttackId(e.target.value)}
-                        placeholder="e.g. zero_shot_clone"
+                        placeholder="e.g. zero_shot_clone, vc_sv"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                       />
                     </div>
-                    <div>
-                      <label className="block text-slate-400 font-mono mb-1">Playback Loudspeaker Device</label>
-                      <input
-                        type="text"
-                        value={playbackDevice}
-                        onChange={(e) => setPlaybackDevice(e.target.value)}
-                        placeholder="e.g. Pixel 8 Phone Speaker"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
-                      />
-                    </div>
+
                     <div>
                       <label className="block text-slate-400 font-mono mb-1">Parent Source Utterance ID</label>
                       <input
@@ -444,6 +680,7 @@ export default function PhysicalDomainCollectionPage() {
                         placeholder="e.g. LA_E_1234567 or synth_clip_01"
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono"
                       />
+                      <p className="text-[10px] font-mono text-slate-500 mt-1">Used to guarantee parent source disjointness across splits.</p>
                     </div>
                   </div>
                 )}
@@ -469,12 +706,14 @@ export default function PhysicalDomainCollectionPage() {
                       <button
                         onClick={() => setCurrentPromptIdx((prev) => (prev > 0 ? prev - 1 : prompts.length - 1))}
                         className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        title="Previous prompt"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setCurrentPromptIdx((prev) => (prev < prompts.length - 1 ? prev + 1 : 0))}
                         className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                        title="Next prompt"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -499,10 +738,18 @@ export default function PhysicalDomainCollectionPage() {
                     className={`w-24 h-24 rounded-full flex items-center justify-center border transition-all ${
                       isRecording
                         ? 'bg-red-500/20 border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.3)] animate-pulse'
+                        : previewBlob
+                        ? 'bg-emerald-500/20 border-emerald-500/50'
                         : 'bg-slate-950 border-slate-700'
                     }`}
                   >
-                    <Mic className={`w-10 h-10 ${isRecording ? 'text-red-400' : 'text-slate-400'}`} />
+                    {isRecording ? (
+                      <Mic className="w-10 h-10 text-red-400" />
+                    ) : previewBlob ? (
+                      <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                    ) : (
+                      <Mic className="w-10 h-10 text-slate-400" />
+                    )}
                   </div>
                   {isRecording && (
                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -514,28 +761,67 @@ export default function PhysicalDomainCollectionPage() {
 
                 <div>
                   <span className="font-mono text-3xl font-bold text-slate-100">
-                    {isRecording ? formatSecs(recordingSeconds) : '00:00'}
+                    {isRecording ? formatSecs(recordingSeconds) : previewBlob ? 'Captured' : '00:00'}
                   </span>
                   <p className="text-xs font-mono text-slate-400 mt-1">
-                    {isRecording ? 'Recording acoustic stream & hardware telemetry...' : 'Ready to record utterance'}
+                    {isRecording
+                      ? 'Recording acoustic stream & hardware telemetry...'
+                      : previewBlob
+                      ? 'Utterance captured. Review playback before submitting.'
+                      : activeTab === 'genuine_capture'
+                      ? 'Speak the prompt text into your physical microphone'
+                      : 'Play synthetic audio through loudspeaker toward microphone'}
                   </p>
                 </div>
 
-                <div className="flex gap-4">
-                  {!isRecording ? (
+                {/* Preview Audio Controls (when captured) */}
+                {previewUrl && (
+                  <div className="w-full max-w-md bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-3">
+                    <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block text-left">
+                      Playback Preview:
+                    </span>
+                    <audio controls src={previewUrl} className="w-full rounded-lg" />
+                  </div>
+                )}
+
+                {/* Primary Action Buttons */}
+                <div className="flex flex-wrap gap-4 justify-center">
+                  {!isRecording && !previewBlob && (
                     <button
                       onClick={startRecording}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                     >
                       <Mic className="w-4 h-4" /> Start Recording
                     </button>
-                  ) : (
+                  )}
+
+                  {isRecording && (
                     <button
                       onClick={stopRecording}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)]"
                     >
-                      <Square className="w-4 h-4" /> Stop & Ingest
+                      <Square className="w-4 h-4" /> Stop Recording
                     </button>
+                  )}
+
+                  {previewBlob && (
+                    <>
+                      <button
+                        onClick={handleRetake}
+                        disabled={isSubmitting}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-mono text-xs font-semibold uppercase tracking-wider transition-all"
+                      >
+                        <RotateCcw className="w-4 h-4" /> Retake
+                      </button>
+                      <button
+                        onClick={handleSubmitRecording}
+                        disabled={isSubmitting}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                      >
+                        <UploadCloud className={`w-4 h-4 ${isSubmitting ? 'animate-bounce' : ''}`} />
+                        {isSubmitting ? 'Submitting...' : 'Submit Recording'}
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -546,7 +832,7 @@ export default function PhysicalDomainCollectionPage() {
                       Rate: <span className="text-emerald-400">{appliedSettings.sampleRate} Hz</span>
                     </div>
                     <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
-                      Codec: <span className="text-emerald-400">{mimeType.split(';')[0] || 'webm'}</span>
+                      Distance: <span className="text-emerald-400">{distanceCategory.replace('_', ' ')}</span>
                     </div>
                     <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
                       EchoCancel: <span className="text-emerald-400">{String(appliedSettings.echoCancellation ?? 'true')}</span>
@@ -564,7 +850,7 @@ export default function PhysicalDomainCollectionPage() {
                   <div className="space-y-1">
                     <span className="text-emerald-400 font-bold">LATEST INGESTED SAMPLE: {lastUploadedSample.sample_id}</span>
                     <p className="text-slate-400">
-                      Duration: {lastUploadedSample.duration_seconds}s &bull; Clipping: {lastUploadedSample.quality_telemetry.clipping_percentage}% &bull; SNR: {lastUploadedSample.quality_telemetry.estimated_snr_db} dB
+                      Duration: {lastUploadedSample.duration_seconds}s &bull; Clipping: {lastUploadedSample.quality_telemetry.clipping_percentage}% &bull; SNR: {lastUploadedSample.quality_telemetry.estimated_snr_db} dB &bull; Silence: {lastUploadedSample.quality_telemetry.silence_percentage}%
                     </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -581,39 +867,65 @@ export default function PhysicalDomainCollectionPage() {
           <div className="space-y-6">
             {/* Top Metrics Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                <span className="text-xs font-mono text-slate-400 uppercase">Total Pool Samples</span>
-                <p className="text-3xl font-bold font-mono text-white mt-1">{dashboard.total_samples}</p>
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
+                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
+                  <HardDrive className="w-3.5 h-3.5 text-blue-400" /> Staged Total
+                </span>
+                <p className="text-3xl font-bold font-mono text-white">{dashboard.total_samples} / {dashboard.target_total || 300}</p>
                 <span className="text-xs font-mono text-emerald-400">{dashboard.real_sample_count} Real &bull; {dashboard.synthetic_sample_count} Synth</span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                <span className="text-xs font-mono text-slate-400 uppercase">Human Speakers</span>
-                <p className={`text-3xl font-bold font-mono mt-1 ${dashboard.human_speaker_count >= 8 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {dashboard.human_speaker_count} / 8+
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
+                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-400" /> Human Speakers
+                </span>
+                <p className={`text-3xl font-bold font-mono ${dashboard.human_speaker_count >= (dashboard.target_speakers || 15) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {dashboard.human_speaker_count} / {dashboard.target_speakers || 15}
                 </p>
-                <span className="text-xs font-mono text-slate-500">{dashboard.human_speaker_count >= 8 ? 'Target Met' : 'Need more speakers'}</span>
+                <span className="text-xs font-mono text-slate-500">
+                  {dashboard.human_speaker_count >= (dashboard.target_speakers || 15) ? 'Target Met' : 'Need more speakers'}
+                </span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                <span className="text-xs font-mono text-slate-400 uppercase">Device Categories</span>
-                <p className="text-3xl font-bold font-mono text-indigo-400 mt-1">{Object.keys(dashboard.per_device_category).length}</p>
-                <span className="text-xs font-mono text-slate-500">Laptops & Mobile</span>
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
+                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-indigo-400" /> Physical Replay
+                </span>
+                <p className={`text-3xl font-bold font-mono ${(dashboard.physical_replay_count || 0) >= (dashboard.target_replay || 150) ? 'text-emerald-400' : 'text-indigo-400'}`}>
+                  {dashboard.physical_replay_count || 0} / {dashboard.target_replay || 150}
+                </p>
+                <span className="text-xs font-mono text-slate-500">Transducer verified</span>
               </div>
 
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                <span className="text-xs font-mono text-slate-400 uppercase">Stage-2 Gate Status</span>
-                <p className={`text-lg font-bold font-mono mt-2 ${dashboard.ready_for_stage_2_evaluation ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {dashboard.ready_for_stage_2_evaluation ? 'READY FOR EVAL' : 'COLLECTION IN PROGRESS'}
+              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-1">
+                <span className="text-xs font-mono text-slate-400 uppercase flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-emerald-400" /> Readiness Gate
+                </span>
+                <p className={`text-base font-bold font-mono mt-1 ${dashboard.ready_for_stage_2_evaluation ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {dashboard.ready_for_stage_2_evaluation ? 'READY FOR EVAL' : 'COLLECTION ACTIVE'}
                 </p>
+                <span className="text-xs font-mono text-slate-500">
+                  {dashboard.ready_for_stage_2_evaluation ? 'Target quotas met' : 'Quotas in progress'}
+                </span>
               </div>
             </div>
 
-            {/* Warning Flags */}
+            {/* Statistical Sufficiency Note Banner */}
+            {dashboard.statistical_sufficiency_note && (
+              <div className="bg-amber-950/25 border border-amber-500/30 rounded-2xl p-5 text-xs font-mono text-amber-200/90 leading-relaxed flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-amber-400 uppercase mb-1">Collection Scope & Statistical Sufficiency Note</h4>
+                  <p>{dashboard.statistical_sufficiency_note}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Confound & Imbalance Flags */}
             {(dashboard.imbalance_flags.length > 0 || dashboard.confound_flags.length > 0 || dashboard.leakage_flags.length > 0) && (
               <div className="bg-amber-950/30 border border-amber-500/40 rounded-2xl p-5 space-y-3 text-xs font-mono">
                 <h3 className="font-bold text-amber-400 flex items-center gap-2 uppercase tracking-wider">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" /> Active Imbalance & Confound Flags
+                  <AlertTriangle className="w-4 h-4 text-amber-400" /> Imbalance & Acoustic Confound Flags
                 </h3>
                 <ul className="space-y-1.5 list-disc list-inside text-amber-200">
                   {dashboard.imbalance_flags.map((flag, i) => (
@@ -629,11 +941,56 @@ export default function PhysicalDomainCollectionPage() {
               </div>
             )}
 
+            {/* Split Export Section */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-mono font-bold text-slate-200 uppercase flex items-center gap-2">
+                    <Download className="w-4 h-4 text-emerald-400" /> Export Partitioned Dataset Splits
+                  </h3>
+                  <p className="text-xs font-mono text-slate-400 mt-1">
+                    Generates train, validation, and test partitions with strict human speaker disjointness into <code>ml_data/physical_domain</code>.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportSplits}
+                  disabled={isExporting || dashboard.total_samples === 0}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-mono text-xs font-semibold uppercase tracking-wider transition-all shrink-0"
+                >
+                  <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
+                  {isExporting ? 'Exporting...' : 'Export Partitioned Splits'}
+                </button>
+              </div>
+
+              {exportResult && (
+                <div className="p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-2 text-xs font-mono">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Splits Successfully Exported ({exportResult.total_exported} total samples)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-slate-300">
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      Train: <span className="text-emerald-400 font-bold">{exportResult.train_count}</span> samples
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      Validation: <span className="text-indigo-400 font-bold">{exportResult.validation_count}</span> samples
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      Test: <span className="text-amber-400 font-bold">{exportResult.test_count}</span> samples
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 pt-1">
+                    Speaker Disjointness: <span className="text-emerald-400 font-bold">{exportResult.human_speakers_disjoint ? 'VERIFIED (0% overlap)' : 'FAILED'}</span> &bull; Directory: <code>{exportResult.export_directory}</code>
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Detailed Speaker & Device Breakdown Tables */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Speakers Table */}
               <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <h3 className="text-xs font-mono font-bold text-slate-300 uppercase">Human Speaker Breakdown</h3>
+                <h3 className="text-xs font-mono font-bold text-slate-300 uppercase">Human Speaker Distribution</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs font-mono text-left">
                     <thead>
@@ -671,8 +1028,8 @@ export default function PhysicalDomainCollectionPage() {
                     <thead>
                       <tr className="text-slate-500 border-b border-slate-800 pb-2">
                         <th className="pb-2">Category</th>
-                        <th className="pb-2">Real Count</th>
-                        <th className="pb-2">Synthetic Count</th>
+                        <th className="pb-2">Real</th>
+                        <th className="pb-2">Synthetic</th>
                         <th className="pb-2">Total</th>
                       </tr>
                     </thead>

@@ -8,6 +8,7 @@ from app.services.physical_collection_service import PhysicalCollectionService
 from app.schemas.physical_collection import (
     IngestionResponse,
     BalanceDashboardResponse,
+    ExportSplitsResponse,
 )
 
 router = APIRouter()
@@ -49,6 +50,8 @@ async def ingest_physical_recording(
     capture_device_category: str = Form("laptop"),
     capture_device_name: Optional[str] = Form(None),
     playback_device: Optional[str] = Form(None),
+    playback_device_category: Optional[str] = Form(None),
+    distance_category: Optional[str] = Form("medium_30cm"),
     browser: Optional[str] = Form(None),
     browser_version: Optional[str] = Form(None),
     os_name: Optional[str] = Form(None),
@@ -106,6 +109,8 @@ async def ingest_physical_recording(
             capture_device_category=capture_device_category,
             capture_device_name=capture_device_name,
             playback_device=playback_device,
+            playback_device_category=playback_device_category,
+            distance_category=distance_category,
             browser=browser,
             browser_version=browser_version,
             os_name=os_name,
@@ -145,3 +150,24 @@ async def propose_split(
 ):
     """Generates a candidate split proposal ensuring human speaker disjointness."""
     return service.propose_split_assignment()
+
+
+@router.post("/export-splits", response_model=ExportSplitsResponse, summary="Export Partitioned Disjoint Splits")
+async def export_splits(
+    target_directory: Optional[str] = Form(None, description="Optional custom target directory for split export"),
+    service: PhysicalCollectionService = Depends(get_physical_collection_service),
+):
+    """Exports collected pool samples into partitioned train/val/test splits ensuring speaker disjointness."""
+    try:
+        target_dir = Path(target_directory) if target_directory else None
+        return service.export_splits(export_dir=target_dir)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Export splits failed: {e}",
+        )

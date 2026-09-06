@@ -8,6 +8,7 @@ import {
   BalanceDashboardResponse,
   IngestionResponse,
   SplitProposalResponse,
+  ExportSplitsResponse,
 } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -207,6 +208,24 @@ class ApiClient {
 
     if (!res.ok) {
       const errMsg = await this.parseErrorResponse(res, 'Generating split proposal');
+      throw new Error(errMsg);
+    }
+
+    return await res.json();
+  }
+
+  async exportCollectionSplits(targetDirectory?: string): Promise<ExportSplitsResponse> {
+    const formData = new FormData();
+    if (targetDirectory) {
+      formData.append('target_directory', targetDirectory);
+    }
+    const res = await fetch(`${this.baseUrl}/api/v1/collection/export-splits`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errMsg = await this.parseErrorResponse(res, 'Exporting collection splits');
       throw new Error(errMsg);
     }
 

@@ -24,7 +24,9 @@ class PhysicalCaptureManifestRecord(BaseModel):
     generator_version: Optional[str] = Field(None, description="Version of generator if known")
     attack_id: Optional[str] = Field(None, description="Attack algorithm identifier, e.g. A07, A10, zero_shot")
     capture_type: Literal[
+        "physical_microphone",
         "physical_browser_microphone",
+        "physical_replay",
         "physical_recapture",
         "direct_digital_control",
         "simulated_transfer",
@@ -34,6 +36,8 @@ class PhysicalCaptureManifestRecord(BaseModel):
     ] = Field("laptop", description="Hardware device category")
     capture_device_name: Optional[str] = Field(None, description="Microphone hardware name, e.g. Realtek Array MEMS")
     playback_device: Optional[str] = Field(None, description="Playback device if physical recapture, e.g. Pixel 8 Speaker")
+    playback_device_category: Optional[str] = Field(None, description="Playback category: smartphone_loudspeaker, laptop_speakers, bluetooth_speaker, desktop_monitors, other_transducer")
+    distance_category: Optional[str] = Field("medium_30cm", description="Recording distance category: close_10cm, medium_30cm, far_1m")
     browser: Optional[str] = Field(None, description="Browser client name, e.g. Google Chrome")
     browser_version: Optional[str] = Field(None, description="Browser version, e.g. 128.0.6613.119")
     os: Optional[str] = Field(None, description="Operating system, e.g. Linux x86_64, Android 14, macOS 14.5")
@@ -82,13 +86,40 @@ class IngestionResponse(BaseModel):
 
 class BalanceDashboardResponse(BaseModel):
     total_samples: int
+    target_total: int = 300
     human_speaker_count: int
+    target_speakers: int = 15
     real_sample_count: int
+    target_genuine: int = 150
     synthetic_sample_count: int
+    physical_replay_count: int
+    target_replay: int = 150
     per_human_speaker: Dict[str, Dict[str, Any]]
     per_device_category: Dict[str, Dict[str, Any]]
     per_split: Dict[str, Dict[str, Any]]
+    generator_distribution: Dict[str, int] = Field(default_factory=dict)
+    playback_device_distribution: Dict[str, int] = Field(default_factory=dict)
+    distance_distribution: Dict[str, int] = Field(default_factory=dict)
+    environment_distribution: Dict[str, int] = Field(default_factory=dict)
     imbalance_flags: List[str]
     confound_flags: List[str]
     leakage_flags: List[str]
     ready_for_stage_2_evaluation: bool
+    statistical_sufficiency_note: str = (
+        "Collection target: 150 genuine + 150 physical replay samples across 15+ speakers. "
+        "Meeting target progress does NOT imply statistical sufficiency or production readiness; "
+        "re-evaluation on held-out test splits is mandatory before any adaptation decisions."
+    )
+
+
+class ExportSplitsResponse(BaseModel):
+    status: str
+    exported_at: str
+    total_exported: int
+    train_count: int
+    validation_count: int
+    test_count: int
+    export_directory: str
+    manifest_paths: Dict[str, str]
+    human_speakers_disjoint: bool
+    message: str
